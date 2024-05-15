@@ -1,3 +1,4 @@
+import numpy as np
 from dataclasses import dataclass
 from enum import Enum
 from math import sqrt, log
@@ -56,20 +57,20 @@ class ThermalDataGenerator:
         self.LOGP = [0] * self.log_size
 
         #pogramed and forced outage rate
-        self.lf = [0] * days_per_year
-        self.lp = [0] * days_per_year
+        self.lf = np.empty(days_per_year, dtype=float)
+        self.lp = np.empty(days_per_year, dtype=float)
 
         ## ???
-        self.ff = [0] * days_per_year #ff = lf / (1 - lf)
-        self.pp = [0] * days_per_year #pp = lp / (1 - lp)
+        self.ff = np.empty(days_per_year, dtype=float) #ff = lf / (1 - lf)
+        self.pp = np.empty(days_per_year, dtype=float) #pp = lp / (1 - lp)
 
         #precalculated value to speed up generation of random outage duration
-        self.af = [0] * days_per_year
-        self.bf = [0] * days_per_year
-        self.ap = [0] * days_per_year
-        self.bp = [0] * days_per_year
+        self.af = np.empty(days_per_year, dtype=float)
+        self.bf = np.empty(days_per_year, dtype=float)
+        self.ap = np.empty(days_per_year, dtype=float)
+        self.bp = np.empty(days_per_year, dtype=float)
 
-    def prepare_indispo_form_law(self, law: ProbilityLaw, volatility: float, A: List[float], B: List[float], expecs: List[int]) -> None:
+    def prepare_outage_duration_constant(self, law: ProbilityLaw, volatility: float, A: List[float], B: List[float], expecs: List[int]) -> None:
         """
         precalculation of constant values use in generation of outage duration
         results are stored in A and B
@@ -126,11 +127,16 @@ class ThermalDataGenerator:
             POD = cluster.po_duration[day]
             self.lp[day] = POR / (POR + POD * (1 - POR))
 
+            if self.lf[day] < 0:
+                raise ValueError(f"forced failure rate is negative on day {day}")
+            if self.lp[day] < 0:
+                raise ValueError(f"programed failure rate is negative on day {day}")
+
             ## i dont understand what these calulations are for
             ## consequently reduce the lower failure rate
-            if (0 < self.lf[day] and self.lf[day] < self.lp[day]):
+            if (self.lf[day] < self.lp[day]):
                 self.lf[day] *= (1 - self.lp[day]) / (1 - self.lf[day])
-            if (0 < self.lp[day] and self.lp[day] < self.lf[day]):
+            if (self.lp[day] < self.lf[day]):
                 self.lp[day] *= (1 - self.lf[day]) / (1 - self.lp[day])
 
             a = 0
@@ -150,8 +156,8 @@ class ThermalDataGenerator:
                 self.PPOW[-1].append(pow(b, k))
 
 
-        self.prepare_indispo_form_law(cluster.fo_law, cluster.fo_volatility, self.af, self.bf, cluster.fo_duration)
-        self.prepare_indispo_form_law(cluster.po_law, cluster.po_volatility, self.ap, self.bp, cluster.po_duration)
+        self.prepare_outage_duration_constant(cluster.fo_law, cluster.fo_volatility, self.af, self.bf, cluster.fo_duration)
+        self.prepare_outage_duration_constant(cluster.po_law, cluster.po_volatility, self.ap, self.bp, cluster.po_duration)
 
         # --- calculation ---
         # the two first generated time series will be dropped, necessary to make system stable and physically coherent
@@ -185,47 +191,12 @@ class ThermalDataGenerator:
                 if cur_nb_AU > 100: ## it was like that in c++, i'm not shure why
                     #maybe it's for the pow (FPOW, PPOW) calculation, if so it might not be the right place to do
                     raise ValueError("avalaible unit number out of bound (> 100)")
-                if self.lf[day] < 0:
-                    raise ValueError(f"forced failure rate is negative on day {day}")
-                if self.lp[day] < 0:
-                    raise ValueError(f"programed failure rate is negative on day {day}")
 
                 # = return of units wich were in outage =
                 cur_nb_PO -= self.LOGP[now]
                 self.LOGP[now] = 0 #set to 0 because this cell will be use again later (in self.log_size days)
                 cur_nb_AU += self.LOG[now]
                 self.LOG[now] = 0
-
-                # = checking if max PO is respected, else correct it =
-                ### !! obsolete, useless !! *TO VERIFY
-                if cur_nb_PO > cluster.npo_max[day]:
-                    #to get PO under PO max we need to push back some extinciton
-                    
-                    #the number of extinction to push back
-                    return_aim = cur_nb_PO - cluster.npo_max[day]
-                    #the number of extinction pushed back
-                    return_count = 0
-
-                    for i in range(self.log_size):
-                        if return_count == return_aim:
-                            break
-                        #the number of units starting in i days
-                        starting = self.LOGP[(now + i) % self.log_size]
-                        if starting >= return_aim - return_count:
-                            #there are enough units to take
-                            return_count = return_aim
-                            self.LOG[(now + i) % self.log_size] -= return_aim - return_count
-                            self.LOGP[(now + i) % self.log_size] -= return_aim - return_count
-                        elif starting > 0:
-                            #there are units but not enought for the objective
-                            return_count += self.LOGP[(now + i) % self.log_size]
-                            self.LOG[(now + i) % self.log_size] -= self.LOGP[(now + i) % self.log_size]
-                            self.LOGP[(now + i) % self.log_size] = 0
-
-                    assert return_count == return_aim
-                    #PO come back to max PO
-                    cur_nb_PO = cluster.npo_max[day]
-                    cur_nb_AU += return_aim
 
                 # = determinating units that go on outage =
                 #FO and PO canditate

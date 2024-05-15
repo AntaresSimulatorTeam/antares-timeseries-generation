@@ -13,7 +13,7 @@ def test_geometric_law(output_directory):
     law = ProbilityLaw.GEOMETRIC
     volatility = 1
 
-    generator.prepare_indispo_form_law(law, volatility, A, B, [10])
+    generator.prepare_outage_duration_constant(law, volatility, A, B, [10])
 
     expec = 0
     nb_values = 45
@@ -44,7 +44,7 @@ def test_uniform_law(output_directory):
     law = ProbilityLaw.UNIFORM
     volatility = 1
 
-    generator.prepare_indispo_form_law(law, volatility, A, B, [10])
+    generator.prepare_outage_duration_constant(law, volatility, A, B, [10])
 
     expec = 0
     nb_values = 45
