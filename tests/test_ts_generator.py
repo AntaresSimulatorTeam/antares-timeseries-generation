@@ -1,10 +1,11 @@
 import csv
-import pytest
 from pathlib import Path
 
-from cluster_import import import_thermal_cluster
+import pytest
 
-from ts_generator import ThermalCluster, ProbilityLaw, ThermalDataGenerator
+from cluster_import import import_thermal_cluster
+from ts_generator import ProbilityLaw, ThermalCluster, ThermalDataGenerator
+
 
 @pytest.fixture
 def cluster_1(data_directory) -> Path:

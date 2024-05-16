@@ -1,7 +1,9 @@
-import numpy as np
 from pathlib import Path
 
-from ts_generator import ThermalCluster, ProbilityLaw
+import numpy as np
+
+from ts_generator import ProbilityLaw, ThermalCluster
+
 
 def import_thermal_cluster(path: Path, days_per_year: int = 365):
     law_dict = {"UNIFORM":ProbilityLaw.UNIFORM, "GEOMETRIC":ProbilityLaw.GEOMETRIC}

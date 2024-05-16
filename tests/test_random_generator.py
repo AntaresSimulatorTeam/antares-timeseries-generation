@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import pytest
 
 from cluster_import import from_csv
-from ts_generator import ThermalCluster, ProbilityLaw, ThermalDataGenerator
+from ts_generator import ProbilityLaw, ThermalCluster, ThermalDataGenerator
+
 
 def test_geometric_law(output_directory):
     generator = ThermalDataGenerator(days_per_year=1)

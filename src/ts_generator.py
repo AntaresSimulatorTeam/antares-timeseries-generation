@@ -1,10 +1,10 @@
-import numpy as np
 from dataclasses import dataclass
 from enum import Enum
-from math import sqrt, log
-from typing import List, Optional, Tuple
+from math import log, sqrt
 from random import random
+from typing import List, Optional, Tuple
 
+import numpy as np
 
 #probabilities above FAILURE_RATE_EQ_1 are considered certain (equal to 1)
 FAILURE_RATE_EQ_1 = 0.999
