@@ -30,11 +30,12 @@ def test_geometric_law(output_directory):
             values[value] += N_inv
 
     expec /= N
-    assert expec == pytest.approx(10, abs = 0.1)
+    assert expec == pytest.approx(10, abs=0.1)
 
     plt.plot(range(nb_values), values)
     plt.savefig(output_directory / "geometric_law_distrib.png")
     plt.clf()
+
 
 def test_uniform_law(output_directory):
     generator = ThermalDataGenerator(days_per_year=1)
@@ -61,7 +62,7 @@ def test_uniform_law(output_directory):
             values[value] += N_inv
 
     expec /= N
-    assert expec == pytest.approx(10, abs = 0.1)
+    assert expec == pytest.approx(10, abs=0.1)
 
     plt.plot(range(nb_values), values)
     plt.savefig(output_directory / "uniform_law_distrib.png")

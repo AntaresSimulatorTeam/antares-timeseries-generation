@@ -11,9 +11,11 @@ from ts_generator import ProbilityLaw, ThermalCluster, ThermalDataGenerator
 def cluster_1(data_directory) -> Path:
     return import_thermal_cluster(data_directory / "cluster_1.csv")
 
+
 @pytest.fixture
 def cluster_100(data_directory) -> Path:
     return import_thermal_cluster(data_directory / "cluster_100.csv")
+
 
 @pytest.fixture
 def cluster_high_por(data_directory) -> Path:
@@ -38,16 +40,20 @@ def test_one_unit_cluster(cluster_1, output_directory):
     true_for = tot_fo / (365 * ts_nb)
 
     with open(output_directory / "test_one_unit_cluster.csv", "w") as file:
-        writer = csv.writer(file, delimiter=',', quotechar='"')
-        
+        writer = csv.writer(file, delimiter=",", quotechar='"')
+
         writer.writerow(["timeseries :"])
-        writer.writerows([[line[i] for i in range(0, len(line), 24)] for line in output_series])
-        
+        writer.writerows(
+            [[line[i] for i in range(0, len(line), 24)] for line in output_series]
+        )
+
         writer.writerow(["outage duration ([POD, FOD]) :"])
         writer.writerows(output_outages)
 
         writer.writerow(["total PO :", tot_po, "total FO :", tot_fo])
-        writer.writerow(["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)])
+        writer.writerow(
+            ["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)]
+        )
 
 
 def test_hundred_unit_cluster(cluster_100, output_directory):
@@ -67,7 +73,7 @@ def test_hundred_unit_cluster(cluster_100, output_directory):
     true_por = tot_po / (365 * ts_nb * cluster_100.unit_count)
     true_for = tot_fo / (365 * ts_nb * cluster_100.unit_count)
 
-    #check the max PO
+    # check the max PO
     tots_simult_po = [[] for _ in range(ts_nb)]
     cursor = [0] * 10
     tot_simult_po = 0
@@ -90,16 +96,20 @@ def test_hundred_unit_cluster(cluster_100, output_directory):
         tots_simult_po[i // 365].append(tot_simult_po)
 
     with open(output_directory / "test_100_unit_cluster.csv", "w") as file:
-        writer = csv.writer(file, delimiter=',', quotechar='"')
-        
+        writer = csv.writer(file, delimiter=",", quotechar='"')
+
         writer.writerow(["timeseries :"])
-        writer.writerows([[line[i] for i in range(0, len(line), 24)] for line in output_series])
-        
+        writer.writerows(
+            [[line[i] for i in range(0, len(line), 24)] for line in output_series]
+        )
+
         writer.writerow(["outage duration ([POD, FOD]) :"])
         writer.writerows(output_outages)
 
         writer.writerow(["total PO :", tot_po, "total FO :", tot_fo])
-        writer.writerow(["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)])
+        writer.writerow(
+            ["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)]
+        )
 
         writer.writerow(["total simultaneous PO :"])
         writer.writerows(tots_simult_po)
@@ -112,7 +122,9 @@ def test_max_po(cluster_high_por, output_directory):
     output_series = [[0 for _ in range(365 * 24)] for __ in range(ts_nb)]
     output_outages = [[0 for _ in range(365)] for __ in range(ts_nb)]
 
-    generator.generate_time_series(cluster_high_por, ts_nb, output_series, output_outages)
+    generator.generate_time_series(
+        cluster_high_por, ts_nb, output_series, output_outages
+    )
 
     tot_po = 0
     tot_fo = 0
@@ -122,7 +134,7 @@ def test_max_po(cluster_high_por, output_directory):
     true_por = tot_po / (365 * ts_nb * cluster_high_por.unit_count)
     true_for = tot_fo / (365 * ts_nb * cluster_high_por.unit_count)
 
-    #check the max PO
+    # check the max PO
     tots_simult_po = [[] for _ in range(ts_nb)]
     cursor = [0] * 10
     tot_simult_po = 0
@@ -145,16 +157,20 @@ def test_max_po(cluster_high_por, output_directory):
         tots_simult_po[i // 365].append(tot_simult_po)
 
     with open(output_directory / "test_high_por_cluster.csv", "w") as file:
-        writer = csv.writer(file, delimiter=',', quotechar='"')
-        
+        writer = csv.writer(file, delimiter=",", quotechar='"')
+
         writer.writerow(["timeseries :"])
-        writer.writerows([[line[i] for i in range(0, len(line), 24)] for line in output_series])
-        
+        writer.writerows(
+            [[line[i] for i in range(0, len(line), 24)] for line in output_series]
+        )
+
         writer.writerow(["outage duration ([POD, FOD]) :"])
         writer.writerows(output_outages)
 
         writer.writerow(["total PO :", tot_po, "total FO :", tot_fo])
-        writer.writerow(["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)])
+        writer.writerow(
+            ["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)]
+        )
 
         writer.writerow(["total simultaneous PO :"])
         writer.writerows(tots_simult_po)
