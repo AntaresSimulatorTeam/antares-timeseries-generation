@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import pytest
 
-from cluster_import import from_csv
+from cluster_import import import_thermal_cluster
 from ts_generator import ProbilityLaw, ThermalCluster, ThermalDataGenerator
 
 
