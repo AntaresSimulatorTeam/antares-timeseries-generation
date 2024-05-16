@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from math import log, sqrt
 from random import random
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
@@ -76,8 +76,8 @@ class ThermalDataGenerator:
         self,
         law: ProbilityLaw,
         volatility: float,
-        A: List[float],
-        B: List[float],
+        A: np.ndarray[Any, np.dtype[Any]],
+        B: np.ndarray[Any, np.dtype[Any]],
         expecs: List[int],
     ) -> None:
         """
@@ -119,7 +119,7 @@ class ThermalDataGenerator:
         cluster: ThermalCluster,
         number_of_timeseries: int,
         output_series: List[List[float]],
-        output_outages: Optional[List[List[Tuple[int]]]] = None,
+        output_outages: Optional[List[List[Tuple[int, int, int, int, int]]]] = None,
     ) -> None:
         """
         generation of multiple timeseries for a given thermal cluster
@@ -129,8 +129,8 @@ class ThermalDataGenerator:
 
         # --- precalculation ---
         # cached values for (1-lf)**k and (1-lp)**k
-        self.FPOW = []
-        self.PPOW = []
+        self.FPOW: List[List[float]] = []
+        self.PPOW: List[List[float]] = []
 
         for day in range(self.days_per_year):
             # lf and lp represent the forced and programed failure rate
