@@ -5,7 +5,7 @@ import numpy as np
 from ts_generator import ProbilityLaw, ThermalCluster
 
 
-def import_thermal_cluster(path: Path, days_per_year: int = 365):
+def import_thermal_cluster(path: Path, days_per_year: int = 365) -> ThermalCluster:
     law_dict = {"UNIFORM": ProbilityLaw.UNIFORM, "GEOMETRIC": ProbilityLaw.GEOMETRIC}
     array = np.genfromtxt(path, delimiter=",", dtype=str)
     return ThermalCluster(
