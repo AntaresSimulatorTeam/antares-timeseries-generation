@@ -1,3 +1,15 @@
+# Copyright (c) 2024, RTE (https://www.rte-france.com)
+#
+# See AUTHORS.txt
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#
+# SPDX-License-Identifier: MPL-2.0
+#
+# This file is part of the Antares project.
+
 import csv
 from pathlib import Path
 
@@ -8,17 +20,17 @@ from ts_generator import ProbilityLaw, ThermalCluster, ThermalDataGenerator
 
 
 @pytest.fixture
-def cluster_1(data_directory) -> Path:
+def cluster_1(data_directory) -> ThermalCluster:
     return import_thermal_cluster(data_directory / "cluster_1.csv")
 
 
 @pytest.fixture
-def cluster_100(data_directory) -> Path:
+def cluster_100(data_directory) -> ThermalCluster:
     return import_thermal_cluster(data_directory / "cluster_100.csv")
 
 
 @pytest.fixture
-def cluster_high_por(data_directory) -> Path:
+def cluster_high_por(data_directory) -> ThermalCluster:
     return import_thermal_cluster(data_directory / "cluster_high_por.csv")
 
 
