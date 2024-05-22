@@ -38,16 +38,13 @@ def test_one_unit_cluster(cluster_1, output_directory):
     ts_nb = 4
 
     generator = ThermalDataGenerator()
-    output_series = [[0 for _ in range(365 * 24)] for __ in range(ts_nb)]
-    output_outages = [[0 for _ in range(365)] for __ in range(ts_nb)]
-
-    generator.generate_time_series(cluster_1, ts_nb, output_series, output_outages)
+    results = generator.generate_time_series(cluster_1, ts_nb)
 
     tot_po = 0
     tot_fo = 0
     for i in range(365 * ts_nb):
-        tot_po += output_outages[i // 365][i % 365][0] * 2
-        tot_fo += output_outages[i // 365][i % 365][1] * 8
+        tot_po += results.nb_ppo[i // 365][i % 365] * 2
+        tot_fo += results.nb_pfo[i // 365][i % 365] * 8
     true_por = tot_po / (365 * ts_nb)
     true_for = tot_fo / (365 * ts_nb)
 
@@ -56,11 +53,8 @@ def test_one_unit_cluster(cluster_1, output_directory):
 
         writer.writerow(["timeseries :"])
         writer.writerows(
-            [[line[i] for i in range(0, len(line), 24)] for line in output_series]
+            [[line[i] for i in range(0, len(line), 24)] for line in results.available_power]
         )
-
-        writer.writerow(["outage duration ([POD, FOD]) :"])
-        writer.writerows(output_outages)
 
         writer.writerow(["total PO :", tot_po, "total FO :", tot_fo])
         writer.writerow(
@@ -72,26 +66,24 @@ def test_hundred_unit_cluster(cluster_100, output_directory):
     ts_nb = 50
 
     generator = ThermalDataGenerator()
-    output_series = [[0 for _ in range(365 * 24)] for __ in range(ts_nb)]
-    output_outages = [[0 for _ in range(365)] for __ in range(ts_nb)]
-
-    generator.generate_time_series(cluster_100, ts_nb, output_series, output_outages)
+    results = generator.generate_time_series(cluster_100, ts_nb)
 
     tot_po = 0
     tot_fo = 0
     for i in range(365 * ts_nb):
-        tot_po += output_outages[i // 365][i % 365][0] * 2
-        tot_fo += output_outages[i // 365][i % 365][1] * 8
-    true_por = tot_po / (365 * ts_nb * cluster_100.unit_count)
-    true_for = tot_fo / (365 * ts_nb * cluster_100.unit_count)
+        tot_po += results.nb_ppo[i // 365][i % 365] * 2
+        tot_fo += results.nb_pfo[i // 365][i % 365] * 8
+    true_por = tot_po / (365 * ts_nb)
+    true_for = tot_fo / (365 * ts_nb)
+
 
     # check the max PO
     tots_simult_po = [[] for _ in range(ts_nb)]
     cursor = [0] * 10
     tot_simult_po = 0
     for i in range(365 * ts_nb):
-        po = output_outages[i // 365][i % 365][0]
-        mo = output_outages[i // 365][i % 365][2]
+        po = results.nb_ppo[i // 365][i % 365]
+        mo = results.nb_mxo[i // 365][i % 365]
 
         tot_simult_po += po
         tot_simult_po += mo
@@ -112,11 +104,8 @@ def test_hundred_unit_cluster(cluster_100, output_directory):
 
         writer.writerow(["timeseries :"])
         writer.writerows(
-            [[line[i] for i in range(0, len(line), 24)] for line in output_series]
+            [[line[i] for i in range(0, len(line), 24)] for line in results.available_power]
         )
-
-        writer.writerow(["outage duration ([POD, FOD]) :"])
-        writer.writerows(output_outages)
 
         writer.writerow(["total PO :", tot_po, "total FO :", tot_fo])
         writer.writerow(
@@ -131,28 +120,15 @@ def test_max_po(cluster_high_por, output_directory):
     ts_nb = 4
 
     generator = ThermalDataGenerator()
-    output_series = [[0 for _ in range(365 * 24)] for __ in range(ts_nb)]
-    output_outages = [[0 for _ in range(365)] for __ in range(ts_nb)]
-
-    generator.generate_time_series(
-        cluster_high_por, ts_nb, output_series, output_outages
-    )
-
-    tot_po = 0
-    tot_fo = 0
-    for i in range(365 * ts_nb):
-        tot_po += output_outages[i // 365][i % 365][0] * 2
-        tot_fo += output_outages[i // 365][i % 365][1] * 8
-    true_por = tot_po / (365 * ts_nb * cluster_high_por.unit_count)
-    true_for = tot_fo / (365 * ts_nb * cluster_high_por.unit_count)
+    results = generator.generate_time_series(cluster_high_por, ts_nb)
 
     # check the max PO
     tots_simult_po = [[] for _ in range(ts_nb)]
     cursor = [0] * 10
     tot_simult_po = 0
     for i in range(365 * ts_nb):
-        po = output_outages[i // 365][i % 365][0]
-        mo = output_outages[i // 365][i % 365][2]
+        po = results.nb_ppo[i // 365][i % 365]
+        mo = results.nb_mxo[i // 365][i % 365]
 
         tot_simult_po += po
         tot_simult_po += mo
@@ -173,15 +149,7 @@ def test_max_po(cluster_high_por, output_directory):
 
         writer.writerow(["timeseries :"])
         writer.writerows(
-            [[line[i] for i in range(0, len(line), 24)] for line in output_series]
-        )
-
-        writer.writerow(["outage duration ([POD, FOD]) :"])
-        writer.writerows(output_outages)
-
-        writer.writerow(["total PO :", tot_po, "total FO :", tot_fo])
-        writer.writerow(
-            ["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)]
+            [[line[i] for i in range(0, len(line), 24)] for line in results.available_power]
         )
 
         writer.writerow(["total simultaneous PO :"])

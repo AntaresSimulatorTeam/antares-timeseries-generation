@@ -109,6 +109,20 @@ class ThermalCluster:
     po_volatility: float
 
 
+class OutputTimeseries:
+    def __init__(self, ts_nb, days_per_year):
+        # available power each hours
+        self.available_power = np.empty((ts_nb, 24 * days_per_year), dtype=float)
+        # number of pure planed, pure forced and mixed outage each day
+        self.nb_ppo = np.empty((ts_nb, days_per_year), dtype=int)
+        self.nb_pfo = np.empty((ts_nb, days_per_year), dtype=int)
+        self.nb_mxo = np.empty((ts_nb, days_per_year), dtype=int)
+        # number of pure planed and pure forced outage duration each day
+        # (mixed outage duration = pod + fod)
+        self.pod = np.empty((ts_nb, days_per_year), dtype=int)
+        self.fod = np.empty((ts_nb, days_per_year), dtype=int)
+
+
 class ThermalDataGenerator:
     def __init__(self, days_per_year: int = 365) -> None:
         self.days_per_year = days_per_year
@@ -143,13 +157,9 @@ class ThermalDataGenerator:
         self,
         cluster: ThermalCluster,
         number_of_timeseries: int,
-        output_series: List[List[float]],
-        output_outages: Optional[List[List[Tuple[int, int, int, int, int]]]] = None,
-    ) -> None:
+    ) -> OutputTimeseries:
         """
         generation of multiple timeseries for a given thermal cluster
-        output_series stores available power at a given time
-        output_outages stores infomation about outages begining at a given time -> (PPO, PFO, MXO, POD, FOD)
         """
 
         # --- precalculation ---
@@ -208,6 +218,9 @@ class ThermalDataGenerator:
         # the two first generated time series will be dropped, necessary to make system stable and physically coherent
         # as a consequence, N + 2 time series will be computed
 
+        #output that will be returned
+        output = OutputTimeseries(number_of_timeseries, self.days_per_year)
+
         # mixed, pure planned and pure force outage
         MXO = 0
         PFO = 0
@@ -224,13 +237,9 @@ class ThermalDataGenerator:
         # stock > 0 number of PO pushed back, stock < 0 number of PO antcipated
         stock = 0
 
-        for ts_index in range(number_of_timeseries + 2):
+        for ts_index in range(-2, number_of_timeseries):
             # hour in the year
             hour = 0
-            if ts_index > 1:
-                if output_outages:
-                    output_outage = output_outages[ts_index - 2]
-                output_serie = output_series[ts_index - 2]
 
             for day in range(self.days_per_year):
                 if cur_nb_AU > 100:  ## it was like that in c++, i'm not shure why
@@ -365,13 +374,18 @@ class ThermalDataGenerator:
                     self.LOGP[fut] += MXO
 
                 # = storing output in output arrays =
-                if ts_index > 1:  # drop the 2 first generated timeseries
-                    if output_outages:
-                        output_outage[day] = (PPO, PFO, MXO, true_POD, true_FOD)
+                if ts_index >= 0:  # drop the 2 first generated timeseries
+                    output.nb_ppo[ts_index][day] = PPO
+                    output.nb_pfo[ts_index][day] = PFO
+                    output.nb_mxo[ts_index][day] = MXO
+                    output.pod[ts_index][day] = true_POD
+                    output.fod[ts_index][day] = true_FOD
                     for h in range(24):
-                        output_serie[hour] = (
+                        output.available_power[ts_index][hour] = (
                             cur_nb_AU * cluster.nominal_power * cluster.modulation[h]
                         )
                         hour += 1
 
                 now = (now + 1) % self.log_size
+
+        return output
