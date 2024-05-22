@@ -110,7 +110,7 @@ class ThermalCluster:
 
 
 class OutputTimeseries:
-    def __init__(self, ts_nb, days_per_year):
+    def __init__(self, ts_nb: int, days_per_year: int) -> None:
         # available power each hours
         self.available_power = np.empty((ts_nb, 24 * days_per_year), dtype=float)
         # number of pure planed, pure forced and mixed outage each day
@@ -218,7 +218,7 @@ class ThermalDataGenerator:
         # the two first generated time series will be dropped, necessary to make system stable and physically coherent
         # as a consequence, N + 2 time series will be computed
 
-        #output that will be returned
+        # output that will be returned
         output = OutputTimeseries(number_of_timeseries, self.days_per_year)
 
         # mixed, pure planned and pure force outage

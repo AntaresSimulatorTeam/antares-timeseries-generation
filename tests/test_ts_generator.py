@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from cluster_import import import_thermal_cluster
-from ts_generator import ProbilityLaw, ThermalCluster, ThermalDataGenerator
+from ts_generator import ThermalCluster, ThermalDataGenerator
 
 
 @pytest.fixture
@@ -53,7 +53,10 @@ def test_one_unit_cluster(cluster_1, output_directory):
 
         writer.writerow(["timeseries :"])
         writer.writerows(
-            [[line[i] for i in range(0, len(line), 24)] for line in results.available_power]
+            [
+                [line[i] for i in range(0, len(line), 24)]
+                for line in results.available_power
+            ]
         )
 
         writer.writerow(["total PO :", tot_po, "total FO :", tot_fo])
@@ -75,7 +78,6 @@ def test_hundred_unit_cluster(cluster_100, output_directory):
         tot_fo += results.nb_pfo[i // 365][i % 365] * 8
     true_por = tot_po / (365 * ts_nb)
     true_for = tot_fo / (365 * ts_nb)
-
 
     # check the max PO
     tots_simult_po = [[] for _ in range(ts_nb)]
@@ -104,7 +106,10 @@ def test_hundred_unit_cluster(cluster_100, output_directory):
 
         writer.writerow(["timeseries :"])
         writer.writerows(
-            [[line[i] for i in range(0, len(line), 24)] for line in results.available_power]
+            [
+                [line[i] for i in range(0, len(line), 24)]
+                for line in results.available_power
+            ]
         )
 
         writer.writerow(["total PO :", tot_po, "total FO :", tot_fo])
@@ -149,7 +154,10 @@ def test_max_po(cluster_high_por, output_directory):
 
         writer.writerow(["timeseries :"])
         writer.writerows(
-            [[line[i] for i in range(0, len(line), 24)] for line in results.available_power]
+            [
+                [line[i] for i in range(0, len(line), 24)]
+                for line in results.available_power
+            ]
         )
 
         writer.writerow(["total simultaneous PO :"])
