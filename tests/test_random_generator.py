@@ -14,19 +14,12 @@ import matplotlib.pyplot as plt
 import pytest
 
 from cluster_import import import_thermal_cluster
-from ts_generator import ProbilityLaw, ThermalCluster, ThermalDataGenerator
+from ts_generator import GeometricDurationGenerator, UniformDurationGenerator
 
 
 def test_geometric_law(output_directory):
-    generator = ThermalDataGenerator(days_per_year=1)
-
-    A = [0]
-    B = [0]
-
-    law = ProbilityLaw.GEOMETRIC
     volatility = 1
-
-    generator.prepare_outage_duration_constant(law, volatility, A, B, [10])
+    generator = GeometricDurationGenerator(volatility, [10])
 
     expec = 0
     nb_values = 45
@@ -34,7 +27,7 @@ def test_geometric_law(output_directory):
     N = 1000000
     N_inv = 1 / N
     for _ in range(N):
-        value = generator.duration_generator(law, volatility, A[0], B[0], 10)
+        value = generator.generate_duration(0)
         assert value >= 1
         expec += value
 
@@ -50,15 +43,8 @@ def test_geometric_law(output_directory):
 
 
 def test_uniform_law(output_directory):
-    generator = ThermalDataGenerator(days_per_year=1)
-
-    A = [0]
-    B = [0]
-
-    law = ProbilityLaw.UNIFORM
     volatility = 1
-
-    generator.prepare_outage_duration_constant(law, volatility, A, B, [10])
+    generator = UniformDurationGenerator(volatility, [10])
 
     expec = 0
     nb_values = 45
@@ -66,7 +52,7 @@ def test_uniform_law(output_directory):
     N = 1000000
     N_inv = 1 / N
     for _ in range(N):
-        value = generator.duration_generator(law, volatility, A[0], B[0], 10)
+        value = generator.generate_duration(0)
         assert value >= 1
         expec += value
 

@@ -10,6 +10,7 @@
 #
 # This file is part of the Antares project.
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from math import log, sqrt
@@ -33,6 +34,55 @@ class ProbilityLaw(Enum):
     GEOMETRIC = "GEOMETRIC"
 
 
+class DurationGenerator(ABC):
+    @abstractmethod
+    def __init__(self, volatility: float, expecs: List[int]) -> None:
+        ...
+
+    @abstractmethod
+    def generate_duration(self, day: int) -> int:
+        ...
+
+
+class UniformDurationGenerator(DurationGenerator):
+    def __init__(self, volatility: float, expecs: List[int]) -> None:
+        self.a = np.empty(len(expecs), dtype=float)
+        self.b = np.empty(len(expecs), dtype=float)
+        for day, expec in enumerate(expecs):
+            xtemp = volatility * (expec - 1)
+            self.a[day] = expec - xtemp
+            self.b[day] = 2 * xtemp + 1
+
+    def generate_duration(self, day: int) -> int:
+        """
+        generation of random outage duration
+        """
+        rnd_nb = rndgenerator.next()
+        return int(self.a[day] + rnd_nb * self.b[day])
+
+
+class GeometricDurationGenerator(DurationGenerator):
+    def __init__(self, volatility: float, expecs: List[int]) -> None:
+        self.a = np.empty(len(expecs), dtype=float)
+        self.b = np.empty(len(expecs), dtype=float)
+        for day, expec in enumerate(expecs):
+            xtemp = volatility * volatility * expec * (expec - 1)
+            if xtemp != 0:
+                ytemp = (sqrt(4 * xtemp + 1) - 1) / (2 * xtemp)
+                self.a[day] = expec - 1 / ytemp
+                self.b[day] = 1 / log(1 - ytemp)
+            else:
+                self.a[day] = expec - 1
+                self.b[day] = 0
+
+    def generate_duration(self, day: int) -> int:
+        """
+        generation of random outage duration
+        """
+        rnd_nb = rndgenerator.next()
+        return min(int(1 + self.a[day] + self.b[day] * log(rnd_nb)), 1999)  ## to change
+
+
 @dataclass
 class ThermalCluster:
     # available units of the cluster
@@ -54,9 +104,23 @@ class ThermalCluster:
     # forced and planed outage probability law and volatility
     # volatility characterizes the distance from the expect at which the value drawn can be
     fo_law: ProbilityLaw
-    fo_volatility: float  ### maybe create an object to store law and volatility
+    fo_volatility: float
     po_law: ProbilityLaw
     po_volatility: float
+
+
+class OutputTimeseries:
+    def __init__(self, ts_nb: int, days_per_year: int) -> None:
+        # available power each hours
+        self.available_power = np.empty((ts_nb, 24 * days_per_year), dtype=float)
+        # number of pure planed, pure forced and mixed outage each day
+        self.nb_ppo = np.empty((ts_nb, days_per_year), dtype=int)
+        self.nb_pfo = np.empty((ts_nb, days_per_year), dtype=int)
+        self.nb_mxo = np.empty((ts_nb, days_per_year), dtype=int)
+        # number of pure planed and pure forced outage duration each day
+        # (mixed outage duration = pod + fod)
+        self.pod = np.empty((ts_nb, days_per_year), dtype=int)
+        self.fod = np.empty((ts_nb, days_per_year), dtype=int)
 
 
 class ThermalDataGenerator:
@@ -78,65 +142,24 @@ class ThermalDataGenerator:
         self.ff = np.empty(days_per_year, dtype=float)  # ff = lf / (1 - lf)
         self.pp = np.empty(days_per_year, dtype=float)  # pp = lp / (1 - lp)
 
-        # precalculated value to speed up generation of random outage duration
-        self.af = np.empty(days_per_year, dtype=float)
-        self.bf = np.empty(days_per_year, dtype=float)
-        self.ap = np.empty(days_per_year, dtype=float)
-        self.bp = np.empty(days_per_year, dtype=float)
-
-    def prepare_outage_duration_constant(
-        self,
-        law: ProbilityLaw,
-        volatility: float,
-        A: np.ndarray[Any, np.dtype[Any]],
-        B: np.ndarray[Any, np.dtype[Any]],
-        expecs: List[int],
-    ) -> None:
+    def get_duration_generator(
+        self, law: ProbilityLaw, volatility: float, expecs: List[int]
+    ) -> DurationGenerator:
         """
-        precalculation of constant values use in generation of outage duration
-        results are stored in A and B
+        return a DurationGenerator for the given law
         """
         if law == ProbilityLaw.UNIFORM:
-            for day in range(self.days_per_year):
-                D = expecs[day]
-                xtemp = volatility * (D - 1)
-                A[day] = D - xtemp
-                B[day] = 2 * xtemp + 1
+            return UniformDurationGenerator(volatility, expecs)
         elif law == ProbilityLaw.GEOMETRIC:
-            for day in range(self.days_per_year):
-                D = expecs[day]
-                xtemp = volatility * volatility * D * (D - 1)
-                if xtemp != 0:
-                    ytemp = (sqrt(4 * xtemp + 1) - 1) / (2 * xtemp)
-                    A[day] = D - 1 / ytemp
-                    B[day] = 1 / log(1 - ytemp)
-                else:
-                    A[day] = D - 1
-                    B[day] = 0
-
-    def duration_generator(
-        self, law: ProbilityLaw, volatility: float, a: float, b: float, expec: int
-    ) -> int:
-        """
-        generation of random outage duration
-        """
-        rnd_nb = rndgenerator.next()
-        if law == ProbilityLaw.UNIFORM:
-            return int(a + rnd_nb * b)
-        elif law == ProbilityLaw.GEOMETRIC:
-            return min(int(1 + a + b * log(rnd_nb)), int(self.log_size / 2 - 1))
+            return GeometricDurationGenerator(volatility, expecs)
 
     def generate_time_series(
         self,
         cluster: ThermalCluster,
         number_of_timeseries: int,
-        output_series: List[List[float]],
-        output_outages: Optional[List[List[Tuple[int, int, int, int, int]]]] = None,
-    ) -> None:
+    ) -> OutputTimeseries:
         """
         generation of multiple timeseries for a given thermal cluster
-        output_series stores available power at a given time
-        output_outages stores infomation about outages begining at a given time -> (PPO, PFO, MXO, POD, FOD)
         """
 
         # --- precalculation ---
@@ -184,16 +207,19 @@ class ThermalDataGenerator:
                 self.FPOW[-1].append(pow(a, k))
                 self.PPOW[-1].append(pow(b, k))
 
-        self.prepare_outage_duration_constant(
-            cluster.fo_law, cluster.fo_volatility, self.af, self.bf, cluster.fo_duration
+        self.fod_generator = self.get_duration_generator(
+            cluster.fo_law, cluster.fo_volatility, cluster.fo_duration
         )
-        self.prepare_outage_duration_constant(
-            cluster.po_law, cluster.po_volatility, self.ap, self.bp, cluster.po_duration
+        self.pod_generator = self.get_duration_generator(
+            cluster.po_law, cluster.po_volatility, cluster.po_duration
         )
 
         # --- calculation ---
         # the two first generated time series will be dropped, necessary to make system stable and physically coherent
         # as a consequence, N + 2 time series will be computed
+
+        # output that will be returned
+        output = OutputTimeseries(number_of_timeseries, self.days_per_year)
 
         # mixed, pure planned and pure force outage
         MXO = 0
@@ -211,13 +237,9 @@ class ThermalDataGenerator:
         # stock > 0 number of PO pushed back, stock < 0 number of PO antcipated
         stock = 0
 
-        for ts_index in range(number_of_timeseries + 2):
+        for ts_index in range(-2, number_of_timeseries):
             # hour in the year
             hour = 0
-            if ts_index > 1:
-                if output_outages:
-                    output_outage = output_outages[ts_index - 2]
-                output_serie = output_series[ts_index - 2]
 
             for day in range(self.days_per_year):
                 if cur_nb_AU > 100:  ## it was like that in c++, i'm not shure why
@@ -335,21 +357,9 @@ class ThermalDataGenerator:
                 true_FOD = 0
 
                 if PPO != 0 or MXO != 0:
-                    true_POD = self.duration_generator(
-                        cluster.po_law,
-                        cluster.po_volatility,
-                        self.ap[day],
-                        self.bp[day],
-                        cluster.po_duration[day],
-                    )
+                    true_POD = self.pod_generator.generate_duration(day)
                 if PFO != 0 or MXO != 0:
-                    true_FOD = self.duration_generator(
-                        cluster.fo_law,
-                        cluster.fo_volatility,
-                        self.af[day],
-                        self.bf[day],
-                        cluster.fo_duration[day],
-                    )
+                    true_FOD = self.fod_generator.generate_duration(day)
 
                 if PPO != 0:
                     fut = (now + true_POD) % self.log_size
@@ -364,13 +374,18 @@ class ThermalDataGenerator:
                     self.LOGP[fut] += MXO
 
                 # = storing output in output arrays =
-                if ts_index > 1:  # drop the 2 first generated timeseries
-                    if output_outages:
-                        output_outage[day] = (PPO, PFO, MXO, true_POD, true_FOD)
+                if ts_index >= 0:  # drop the 2 first generated timeseries
+                    output.nb_ppo[ts_index][day] = PPO
+                    output.nb_pfo[ts_index][day] = PFO
+                    output.nb_mxo[ts_index][day] = MXO
+                    output.pod[ts_index][day] = true_POD
+                    output.fod[ts_index][day] = true_FOD
                     for h in range(24):
-                        output_serie[hour] = (
+                        output.available_power[ts_index][hour] = (
                             cur_nb_AU * cluster.nominal_power * cluster.modulation[h]
                         )
                         hour += 1
 
                 now = (now + 1) % self.log_size
+
+        return output
