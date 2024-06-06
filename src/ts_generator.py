@@ -18,16 +18,20 @@ from random import random
 from typing import Any, List, Optional, Tuple
 
 import numpy as np
-
+ 
+from mersenne_twister import MersenneTwister
+ 
 # probabilities above FAILURE_RATE_EQ_1 are considered certain (equal to 1)
 FAILURE_RATE_EQ_1 = 0.999
 
 
-class rndgenerator:
+class PythonGenerator:
     @classmethod
     def next(self) -> float:
         return random()
 
+rndgenerator = MersenneTwister
+rndgenerator.seed(1)
 
 class ProbilityLaw(Enum):
     UNIFORM = "UNIFORM"
@@ -80,7 +84,7 @@ class GeometricDurationGenerator(DurationGenerator):
         generation of random outage duration
         """
         rnd_nb = rndgenerator.next()
-        return min(int(1 + self.a[day] + self.b[day] * log(rnd_nb)), 1999)  ## to change
+        return min(int(1 + self.a[day] + self.b[day] * log(rnd_nb)), 1999)
 
 
 @dataclass
@@ -127,7 +131,6 @@ class ThermalDataGenerator:
     def __init__(self, days_per_year: int = 365) -> None:
         self.days_per_year = days_per_year
 
-        ## explain that ??
         self.log_size = 4000  # >= 5 * (max(df) + max(dp))
         # the number of starting (if positive)/ stopping (if negative) units (due to FO and PO) at a given time
         self.LOG = [0] * self.log_size
@@ -240,152 +243,146 @@ class ThermalDataGenerator:
         for ts_index in range(-2, number_of_timeseries):
             # hour in the year
             hour = 0
+            # = return of units wich were in outage =
+            cur_nb_PO -= self.LOGP[now]
+            self.LOGP[
+                now
+            ] = 0  # set to 0 because this cell will be use again later (in self.log_size days)
+            cur_nb_AU += self.LOG[now]
+            self.LOG[now] = 0
 
-            for day in range(self.days_per_year):
-                if cur_nb_AU > 100:  ## it was like that in c++, i'm not shure why
-                    # maybe it's for the pow (FPOW, PPOW) calculation, if so it might not be the right place to do
-                    raise ValueError("avalaible unit number out of bound (> 100)")
+            # = determinating units that go on outage =
+            # FO and PO canditate
+            FOC = 0
+            POC = 0
 
-                # = return of units wich were in outage =
-                cur_nb_PO -= self.LOGP[now]
-                self.LOGP[
-                    now
-                ] = 0  # set to 0 because this cell will be use again later (in self.log_size days)
-                cur_nb_AU += self.LOG[now]
-                self.LOG[now] = 0
-
-                # = determinating units that go on outage =
-                # FO and PO canditate
+            if self.lf[day] > 0 and self.lf[day] <= FAILURE_RATE_EQ_1:
+                A = rndgenerator.next()
+                last = self.FPOW[day][cur_nb_AU]
+                if A > last:
+                    cumul = last
+                    for d in range(1, cur_nb_AU + 1):
+                        last = last * self.ff[day] * (cur_nb_AU + 1 - d) / d
+                        cumul += last
+                        FOC = d
+                        if A <= cumul:
+                            break
+            elif self.lf[day] > FAILURE_RATE_EQ_1:
+                FOC = cur_nb_AU
+            else:  # self.lf[day] == 0
                 FOC = 0
+
+            if self.lp[day] > 0 and self.lp[day] <= FAILURE_RATE_EQ_1:
+                # apparent number of available units
+                AUN_app = cur_nb_AU
+                if stock >= 0 and stock <= cur_nb_AU:
+                    AUN_app -= stock
+                elif stock > cur_nb_AU:
+                    AUN_app = 0
+
+                A = rndgenerator.next()
+                last = self.PPOW[day][cur_nb_AU]
+                if A > last:
+                    cumul = last
+                    for d in range(1, cur_nb_AU + 1):
+                        last = last * self.pp[day] * (cur_nb_AU + 1 - d) / d
+                        cumul += last
+                        POC = d
+                        if A <= cumul:
+                            break
+            elif self.lp[day] > FAILURE_RATE_EQ_1:
+                POC = cur_nb_AU
+            else:  # self.lf[day] == 0
                 POC = 0
 
-                if self.lf[day] > 0 and self.lf[day] <= FAILURE_RATE_EQ_1:
-                    A = rndgenerator.next()
-                    last = self.FPOW[day][cur_nb_AU]
-                    if A > last:
-                        cumul = last
-                        for d in range(1, cur_nb_AU + 1):
-                            last = last * self.ff[day] * (cur_nb_AU + 1 - d) / d
-                            cumul += last
-                            FOC = d
-                            if A <= cumul:
-                                break
-                elif self.lf[day] > FAILURE_RATE_EQ_1:
-                    FOC = cur_nb_AU
-                else:  # self.lf[day] == 0
-                    FOC = 0
+            # apparent PO is compared to cur_nb_AU, considering stock
+            candidate = POC + stock
+            if 0 <= candidate and candidate <= cur_nb_AU:
+                POC = candidate
+                stock = 0
+            if candidate > cur_nb_AU:
+                POC = cur_nb_AU
+                stock = candidate - cur_nb_AU
+            if candidate < 0:
+                POC = 0
+                stock = candidate
 
-                if self.lp[day] > 0 and self.lp[day] <= FAILURE_RATE_EQ_1:
-                    # apparent number of available units
-                    AUN_app = cur_nb_AU
-                    if stock >= 0 and stock <= cur_nb_AU:
-                        AUN_app -= stock
-                    elif stock > cur_nb_AU:
-                        AUN_app = 0
-
-                    A = rndgenerator.next()
-                    last = self.PPOW[day][cur_nb_AU]
-                    if A > last:
-                        cumul = last
-                        for d in range(1, cur_nb_AU + 1):
-                            last = last * self.pp[day] * (cur_nb_AU + 1 - d) / d
-                            cumul += last
-                            POC = d
-                            if A <= cumul:
-                                break
-                elif self.lp[day] > FAILURE_RATE_EQ_1:
+            # = checking min and max PO =
+            if POC + cur_nb_PO > cluster.npo_max[day]:
+                # too many PO to place
+                # the excedent is placed in stock
+                POC = cluster.npo_max[day] - cur_nb_PO
+                cur_nb_PO += POC
+            elif POC + cur_nb_PO < cluster.npo_min[day]:
+                if cluster.npo_min[day] - cur_nb_PO > cur_nb_AU:
+                    stock -= cur_nb_AU - POC
                     POC = cur_nb_AU
-                else:  # self.lf[day] == 0
-                    POC = 0
-
-                # apparent PO is compared to cur_nb_AU, considering stock
-                candidate = POC + stock
-                if 0 <= candidate and candidate <= cur_nb_AU:
-                    POC = candidate
-                    stock = 0
-                if candidate > cur_nb_AU:
-                    POC = cur_nb_AU
-                    stock = candidate - cur_nb_AU
-                if candidate < 0:
-                    POC = 0
-                    stock = candidate
-
-                # = checking min and max PO =
-                if POC + cur_nb_PO > cluster.npo_max[day]:
-                    # too many PO to place
-                    # the excedent is placed in stock
-                    POC = cluster.npo_max[day] - cur_nb_PO
                     cur_nb_PO += POC
-                elif POC + cur_nb_PO < cluster.npo_min[day]:
-                    if cluster.npo_min[day] - cur_nb_PO > cur_nb_AU:
-                        stock -= cur_nb_AU - POC
-                        POC = cur_nb_AU
-                        cur_nb_PO += POC
-                    else:
-                        stock -= cluster.npo_min[day] - (POC + cur_nb_PO)
-                        POC = cluster.npo_min[day] - cur_nb_PO
-                        cur_nb_PO += POC
                 else:
+                    stock -= cluster.npo_min[day] - (POC + cur_nb_PO)
+                    POC = cluster.npo_min[day] - cur_nb_PO
                     cur_nb_PO += POC
+            else:
+                cur_nb_PO += POC
 
-                # = distributing outage in category =
-                # pure planed, pure forced, mixed
-                if cluster.unit_count == 1:
-                    if POC == 1 and FOC == 1:
-                        MXO = 1
-                        PPO = 0
-                        PFO = 0
-                    else:
-                        MXO = 0
-                        PPO = int(POC)
-                        PFO = int(FOC)
+            # = distributing outage in category =
+            # pure planed, pure forced, mixed
+            if cluster.unit_count == 1:
+                if POC == 1 and FOC == 1:
+                    MXO = 1
+                    PPO = 0
+                    PFO = 0
                 else:
-                    if cur_nb_AU != 0:
-                        MXO = int(POC * FOC // cur_nb_AU)
-                        PPO = int(POC - MXO)
-                        PFO = int(FOC - MXO)
-                    else:
-                        MXO = 0
-                        PPO = 0
-                        PFO = 0
+                    MXO = 0
+                    PPO = int(POC)
+                    PFO = int(FOC)
+            else:
+                if cur_nb_AU != 0:
+                    MXO = int(POC * FOC // cur_nb_AU)
+                    PPO = int(POC - MXO)
+                    PFO = int(FOC - MXO)
+                else:
+                    MXO = 0
+                    PPO = 0
+                    PFO = 0
 
-                # = units stopping =
-                cur_nb_AU -= PPO + PFO + MXO
+            # = units stopping =
+            cur_nb_AU -= PPO + PFO + MXO
 
-                # = generating outage duration = (from the law)
-                true_POD = 0
-                true_FOD = 0
+            # = generating outage duration = (from the law)
+            true_POD = 0
+            true_FOD = 0
 
-                if PPO != 0 or MXO != 0:
-                    true_POD = self.pod_generator.generate_duration(day)
-                if PFO != 0 or MXO != 0:
-                    true_FOD = self.fod_generator.generate_duration(day)
+            if PPO != 0 or MXO != 0:
+                true_POD = self.pod_generator.generate_duration(day)
+            if PFO != 0 or MXO != 0:
+                true_FOD = self.fod_generator.generate_duration(day)
 
-                if PPO != 0:
-                    fut = (now + true_POD) % self.log_size
-                    self.LOG[fut] += PPO
-                    self.LOGP[fut] += PPO
-                if PFO != 0:
-                    fut = (now + true_FOD) % self.log_size
-                    self.LOG[fut] += PFO
-                if MXO != 0:
-                    fut = (now + true_POD + true_FOD) % self.log_size
-                    self.LOG[fut] += MXO
-                    self.LOGP[fut] += MXO
+            if PPO != 0:
+                fut = (now + true_POD) % self.log_size
+                self.LOG[fut] += PPO
+                self.LOGP[fut] += PPO
+            if PFO != 0:
+                fut = (now + true_FOD) % self.log_size
+                self.LOG[fut] += PFO
+            if MXO != 0:
+                fut = (now + true_POD + true_FOD) % self.log_size
+                self.LOG[fut] += MXO
+                self.LOGP[fut] += MXO
 
-                # = storing output in output arrays =
-                if ts_index >= 0:  # drop the 2 first generated timeseries
-                    output.nb_ppo[ts_index][day] = PPO
-                    output.nb_pfo[ts_index][day] = PFO
-                    output.nb_mxo[ts_index][day] = MXO
-                    output.pod[ts_index][day] = true_POD
-                    output.fod[ts_index][day] = true_FOD
-                    for h in range(24):
-                        output.available_power[ts_index][hour] = (
-                            cur_nb_AU * cluster.nominal_power * cluster.modulation[h]
-                        )
-                        hour += 1
+            # = storing output in output arrays =
+            if ts_index >= 0:  # drop the 2 first generated timeseries
+                output.nb_ppo[ts_index][day] = PPO
+                output.nb_pfo[ts_index][day] = PFO
+                output.nb_mxo[ts_index][day] = MXO
+                output.pod[ts_index][day] = true_POD
+                output.fod[ts_index][day] = true_FOD
+                for h in range(24):
+                    output.available_power[ts_index][hour] = (
+                        cur_nb_AU * cluster.nominal_power * cluster.modulation[h]
+                    )
+                    hour += 1
 
-                now = (now + 1) % self.log_size
+            now = (now + 1) % self.log_size
 
         return output
