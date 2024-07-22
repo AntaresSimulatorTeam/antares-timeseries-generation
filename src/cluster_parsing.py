@@ -12,7 +12,6 @@
 
 from pathlib import Path
 from typing import Iterable, Optional, TextIO, Tuple
-
 import pandas as pd
 from pydantic import BaseModel, Field
 from yaml import safe_load

@@ -10,84 +10,16 @@
 #
 # This file is part of the Antares project.
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import Enum
-from math import log, sqrt
-from random import random
-from typing import Any, List, Optional, Tuple
+from typing import List
 
 import numpy as np
-from numpy.typing import ArrayLike
 
-from mersenne_twister import MersenneTwister
+from duration_generator import ProbilityLaw, make_duration_generator
+from random_generator import RNG, MersenneTwisterRNG
 
 # probabilities above FAILURE_RATE_EQ_1 are considered certain (equal to 1)
 FAILURE_RATE_EQ_1 = 0.999
-
-
-class PythonGenerator:
-    @classmethod
-    def next(self) -> float:
-        return random()
-
-
-rndgenerator = MersenneTwister
-rndgenerator.seed(1)
-
-
-class ProbilityLaw(Enum):
-    UNIFORM = "UNIFORM"
-    GEOMETRIC = "GEOMETRIC"
-
-
-class DurationGenerator(ABC):
-    @abstractmethod
-    def __init__(self, volatility: float, expecs: List[int]) -> None:
-        ...
-
-    @abstractmethod
-    def generate_duration(self, day: int) -> int:
-        ...
-
-
-class UniformDurationGenerator(DurationGenerator):
-    def __init__(self, volatility: float, expecs: List[int]) -> None:
-        self.a = np.empty(len(expecs), dtype=float)
-        self.b = np.empty(len(expecs), dtype=float)
-        for day, expec in enumerate(expecs):
-            xtemp = volatility * (expec - 1)
-            self.a[day] = expec - xtemp
-            self.b[day] = 2 * xtemp + 1
-
-    def generate_duration(self, day: int) -> int:
-        """
-        generation of random outage duration
-        """
-        rnd_nb = rndgenerator.next()
-        return int(self.a[day] + rnd_nb * self.b[day])
-
-
-class GeometricDurationGenerator(DurationGenerator):
-    def __init__(self, volatility: float, expecs: List[int]) -> None:
-        self.a = np.empty(len(expecs), dtype=float)
-        self.b = np.empty(len(expecs), dtype=float)
-        for day, expec in enumerate(expecs):
-            xtemp = volatility * volatility * expec * (expec - 1)
-            if xtemp != 0:
-                ytemp = (sqrt(4 * xtemp + 1) - 1) / (2 * xtemp)
-                self.a[day] = expec - 1 / ytemp
-                self.b[day] = 1 / log(1 - ytemp)
-            else:
-                self.a[day] = expec - 1
-                self.b[day] = 0
-
-    def generate_duration(self, day: int) -> int:
-        """
-        generation of random outage duration
-        """
-        rnd_nb = rndgenerator.next()
-        return min(int(1 + self.a[day] + self.b[day] * log(rnd_nb)), 1999)
 
 
 @dataclass
@@ -131,7 +63,8 @@ class OutputTimeseries:
 
 
 class ThermalDataGenerator:
-    def __init__(self, days_per_year: int = 365) -> None:
+    def __init__(self, rng: RNG = MersenneTwisterRNG(), days_per_year: int = 365) -> None:
+        self.rng = rng
         self.days_per_year = days_per_year
 
         self.log_size = 4000  # >= 5 * (max(df) + max(dp))
@@ -148,16 +81,6 @@ class ThermalDataGenerator:
         self.ff = np.empty(days_per_year, dtype=float)  # ff = lf / (1 - lf)
         self.pp = np.empty(days_per_year, dtype=float)  # pp = lp / (1 - lp)
 
-    def get_duration_generator(
-        self, law: ProbilityLaw, volatility: float, expecs: List[int]
-    ) -> DurationGenerator:
-        """
-        return a DurationGenerator for the given law
-        """
-        if law == ProbilityLaw.UNIFORM:
-            return UniformDurationGenerator(volatility, expecs)
-        elif law == ProbilityLaw.GEOMETRIC:
-            return GeometricDurationGenerator(volatility, expecs)
 
     def generate_time_series(
         self,
@@ -213,11 +136,11 @@ class ThermalDataGenerator:
                 self.FPOW[-1].append(pow(a, k))
                 self.PPOW[-1].append(pow(b, k))
 
-        self.fod_generator = self.get_duration_generator(
-            cluster.fo_law, cluster.fo_volatility, cluster.fo_duration
+        fod_generator = make_duration_generator(
+            self.rng, cluster.fo_law, cluster.fo_volatility, cluster.fo_duration
         )
-        self.pod_generator = self.get_duration_generator(
-            cluster.po_law, cluster.po_volatility, cluster.po_duration
+        pod_generator = make_duration_generator(
+            self.rng, cluster.po_law, cluster.po_volatility, cluster.po_duration
         )
 
         # --- calculation ---
@@ -256,13 +179,11 @@ class ThermalDataGenerator:
                 cur_nb_AU += self.LOG[now]
                 self.LOG[now] = 0
 
-                # = determinating units that go on outage =
-                # FO and PO canditate
                 FOC = 0
                 POC = 0
 
                 if self.lf[day] > 0 and self.lf[day] <= FAILURE_RATE_EQ_1:
-                    A = rndgenerator.next()
+                    A = self.rng.next()
                     last = self.FPOW[day][cur_nb_AU]
                     if A > last:
                         cumul = last
@@ -272,7 +193,7 @@ class ThermalDataGenerator:
                             FOC = d
                             if A <= cumul:
                                 break
-                elif self.lf[day] > FAILURE_RATE_EQ_1:
+                elif self.lf[day] > FAILURE_RATE_EQ_1:  # TODO: not same comparison as cpp ?
                     FOC = cur_nb_AU
                 else:  # self.lf[day] == 0
                     FOC = 0
@@ -285,7 +206,7 @@ class ThermalDataGenerator:
                     elif stock > cur_nb_AU:
                         AUN_app = 0
 
-                    A = rndgenerator.next()
+                    A = self.rng.next()
                     last = self.PPOW[day][cur_nb_AU]
                     if A > last:
                         cumul = last
@@ -359,9 +280,9 @@ class ThermalDataGenerator:
                 true_FOD = 0
 
                 if PPO != 0 or MXO != 0:
-                    true_POD = self.pod_generator.generate_duration(day)
+                    true_POD = pod_generator.generate_duration(day)
                 if PFO != 0 or MXO != 0:
-                    true_FOD = self.fod_generator.generate_duration(day)
+                    true_FOD = fod_generator.generate_duration(day)
 
                 if PPO != 0:
                     fut = (now + true_POD) % self.log_size

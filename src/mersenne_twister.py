@@ -27,10 +27,11 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+import dataclasses
+from dataclasses import field
 from typing import List, Tuple
 
-
+@dataclasses.dataclass
 class MersenneTwister:
     periodN: int = 624
     periodM: int = 397
@@ -39,13 +40,12 @@ class MersenneTwister:
     LOWER_MASK: int = 0x7FFFFFFF
 
     MAG: Tuple[int, int] = (0, MATRIX_A)
-
-    mt: List[int] = [0] * periodN
+    
+    mt: List[int] = field(default_factory=lambda: [0] * 624)
 
     mti: int = 0
 
-    @classmethod
-    def seed(self, seed: int) -> None:
+    def seed(self, seed:int) -> None:
         self.mt[0] = seed & 0xFFFFFFFF
         for i in range(1, self.periodN):
             self.mt[i] = 1812433253 * (self.mt[i - 1] ^ (self.mt[i - 1] >> 30)) + i
@@ -53,7 +53,6 @@ class MersenneTwister:
 
         self.mti = self.periodN
 
-    @classmethod
     def next(self) -> float:
         if self.mti == self.periodN:
             for j in range(self.periodN - self.periodM):
@@ -87,6 +86,5 @@ class MersenneTwister:
 
         return y / 4294967295
 
-    @classmethod
     def reset(self) -> None:
         self.seed(5489)

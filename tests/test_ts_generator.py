@@ -11,7 +11,6 @@
 # This file is part of the Antares project.
 
 import csv
-from pathlib import Path
 
 import pytest
 

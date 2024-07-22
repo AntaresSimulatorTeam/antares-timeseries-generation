@@ -13,13 +13,12 @@
 import matplotlib.pyplot as plt
 import pytest
 
-from cluster_import import import_thermal_cluster
-from ts_generator import GeometricDurationGenerator, UniformDurationGenerator
+from duration_generator import GeometricDurationGenerator, UniformDurationGenerator
 
 
-def test_geometric_law(output_directory):
+def test_geometric_law(rng, output_directory):
     volatility = 1
-    generator = GeometricDurationGenerator(volatility, [10])
+    generator = GeometricDurationGenerator(rng, volatility, [10])
 
     expec = 0
     nb_values = 45
@@ -42,9 +41,9 @@ def test_geometric_law(output_directory):
     plt.clf()
 
 
-def test_uniform_law(output_directory):
+def test_uniform_law(rng, output_directory):
     volatility = 1
-    generator = UniformDurationGenerator(volatility, [10])
+    generator = UniformDurationGenerator(rng, volatility, [10])
 
     expec = 0
     nb_values = 45
