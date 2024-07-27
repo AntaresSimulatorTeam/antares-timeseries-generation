@@ -10,13 +10,12 @@
 #
 # This file is part of the Antares project.
 
-from typing import Iterable, TextIO, Optional, Tuple
-
 from pathlib import Path
-from pydantic import BaseModel, Field
-from yaml import safe_load
+from typing import Iterable, Optional, TextIO, Tuple
 
 import pandas as pd
+from pydantic import BaseModel, Field
+from yaml import safe_load
 
 
 def _to_kebab(snake: str) -> str:

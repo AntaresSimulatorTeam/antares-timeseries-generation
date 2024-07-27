@@ -12,9 +12,9 @@
 
 import pytest
 
-from ts_generator import ProbilityLaw, ThermalCluster, ThermalDataGenerator
-from cluster_parsing import parse_yaml_cluster, parse_cluster_ts
+from cluster_parsing import parse_cluster_ts, parse_yaml_cluster
 from cluster_resolve import resolve_thermal_cluster
+from ts_generator import ProbilityLaw, ThermalCluster, ThermalDataGenerator
 
 NB_OF_DAY = 10
 

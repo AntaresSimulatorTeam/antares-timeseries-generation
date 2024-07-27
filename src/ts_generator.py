@@ -18,9 +18,9 @@ from random import random
 from typing import Any, List, Optional, Tuple
 
 import numpy as np
- 
+
 from mersenne_twister import MersenneTwister
- 
+
 # probabilities above FAILURE_RATE_EQ_1 are considered certain (equal to 1)
 FAILURE_RATE_EQ_1 = 0.999
 

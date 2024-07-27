@@ -12,8 +12,9 @@
 
 import pandas as pd
 
-from ts_generator import ProbilityLaw, ThermalCluster
 from cluster_parsing import InputCluster
+from ts_generator import ProbilityLaw, ThermalCluster
+
 
 def resolve_thermal_cluster(
         parsed_yaml: InputCluster, parameters_ts: pd.core.frame.DataFrame, modulation: pd.core.frame.DataFrame

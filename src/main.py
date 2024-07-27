@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import List, Optional
 
 
-
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
