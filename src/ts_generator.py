@@ -30,8 +30,10 @@ class PythonGenerator:
     def next(self) -> float:
         return random()
 
+
 rndgenerator = MersenneTwister
 rndgenerator.seed(1)
+
 
 class ProbilityLaw(Enum):
     UNIFORM = "UNIFORM"

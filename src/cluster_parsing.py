@@ -40,7 +40,9 @@ def parse_yaml_cluster(input_cluster: TextIO) -> InputCluster:
     return InputCluster.model_validate(tree["cluster"])
 
 
-def parse_cluster_ts(file: Path, shape: Optional[Tuple[int, int]] = None) -> pd.core.frame.DataFrame:
+def parse_cluster_ts(
+    file: Path, shape: Optional[Tuple[int, int]] = None
+) -> pd.core.frame.DataFrame:
     ts = pd.read_csv(file)
     assert shape is None or ts.shape == shape
     return ts

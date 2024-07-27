@@ -39,18 +39,18 @@ class MersenneTwister:
     LOWER_MASK: int = 0x7FFFFFFF
 
     MAG: Tuple[int] = (0, MATRIX_A)
-    
+
     mt: List[int] = [0] * periodN
 
     mti: int = 0
 
     @classmethod
-    def seed(self, seed:int):
+    def seed(self, seed: int):
         self.mt[0] = seed & 0xFFFFFFFF
         for i in range(1, self.periodN):
             self.mt[i] = 1812433253 * (self.mt[i - 1] ^ (self.mt[i - 1] >> 30)) + i
-            self.mt[i] &= 0xFFFFFFFF #to be under 32 bits
-        
+            self.mt[i] &= 0xFFFFFFFF  # to be under 32 bits
+
         self.mti = self.periodN
 
     @classmethod
@@ -62,20 +62,28 @@ class MersenneTwister:
 
             for j in range(self.periodN - self.periodM, self.periodN - 1):
                 y = (self.mt[j] & self.UPPER_MASK) | (self.mt[j + 1] & self.LOWER_MASK)
-                self.mt[j] = self.mt[j + self.periodM - self.periodN] ^ (y >> 1) ^ self.MAG[y & 1]
+                self.mt[j] = (
+                    self.mt[j + self.periodM - self.periodN]
+                    ^ (y >> 1)
+                    ^ self.MAG[y & 1]
+                )
 
-            y = (self.mt[self.periodN - 1] & self.UPPER_MASK) | (self.mt[0] & self.LOWER_MASK)
-            self.mt[self.periodN - 1] = self.mt[self.periodM - 1] ^ (y >> 1) ^ self.MAG[y & 1]
+            y = (self.mt[self.periodN - 1] & self.UPPER_MASK) | (
+                self.mt[0] & self.LOWER_MASK
+            )
+            self.mt[self.periodN - 1] = (
+                self.mt[self.periodM - 1] ^ (y >> 1) ^ self.MAG[y & 1]
+            )
 
             self.mti = 0
 
         y = self.mt[self.mti]
         self.mti += 1
 
-        y ^= (y >> 11)
+        y ^= y >> 11
         y ^= (y << 7) & 0x9D2C5680
         y ^= (y << 15) & 0xEFC60000
-        y ^= (y >> 18)
+        y ^= y >> 18
 
         return y / 4294967295
 
