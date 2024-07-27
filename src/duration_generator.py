@@ -11,9 +11,10 @@
 # This file is part of the Antares project.
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import List
-import numpy as np
 from math import log, sqrt
+from typing import List
+
+import numpy as np
 
 from random_generator import RNG
 
@@ -39,7 +40,9 @@ class GeneratorWrapper(DurationGenerator):
     Used to keep backward compat with cpp implementation.
     """
 
-    def __init__(self, delegate: DurationGenerator, volatility: float, expecs: List[int]) -> None:
+    def __init__(
+        self, delegate: DurationGenerator, volatility: float, expecs: List[int]
+    ) -> None:
         self.volatility = volatility
         self.expectations = expecs
         self.delegate = delegate
@@ -97,11 +100,12 @@ class GeometricDurationGenerator(DurationGenerator):
 
 
 def make_duration_generator(
-        rng: RNG, law: ProbilityLaw, volatility: float, expecs: List[int]
+    rng: RNG, law: ProbilityLaw, volatility: float, expecs: List[int]
 ) -> DurationGenerator:
     """
     return a DurationGenerator for the given law
     """
+    base_rng: DurationGenerator
     if law == ProbilityLaw.UNIFORM:
         base_rng = UniformDurationGenerator(rng, volatility, expecs)
     elif law == ProbilityLaw.GEOMETRIC:

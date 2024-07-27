@@ -22,7 +22,7 @@ class RNG(ABC):
     """
 
     @abstractmethod
-    def next(self) -> int:
+    def next(self) -> float:
         ...
 
 
@@ -31,7 +31,7 @@ class PythonRNG(ABC):
     Native python RNG.
     """
 
-    def next(self) -> int:
+    def next(self) -> float:
         return random.random()
 
 
@@ -40,9 +40,9 @@ class MersenneTwisterRNG(RNG):
     Our own RNG based on Mersenne-Twister algorithm.
     """
 
-    def __init__(self, seed: Optional[int] = 5489):
+    def __init__(self, seed: int = 5489):
         self._rng = MersenneTwister()
         self._rng.seed(seed)
 
-    def next(self) -> int:
+    def next(self) -> float:
         return self._rng.next()

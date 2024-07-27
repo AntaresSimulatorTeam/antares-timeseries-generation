@@ -31,6 +31,7 @@ import dataclasses
 from dataclasses import field
 from typing import List, Tuple
 
+
 @dataclasses.dataclass
 class MersenneTwister:
     periodN: int = 624
@@ -40,12 +41,12 @@ class MersenneTwister:
     LOWER_MASK: int = 0x7FFFFFFF
 
     MAG: Tuple[int, int] = (0, MATRIX_A)
-    
+
     mt: List[int] = field(default_factory=lambda: [0] * 624)
 
     mti: int = 0
 
-    def seed(self, seed:int) -> None:
+    def seed(self, seed: int) -> None:
         self.mt[0] = seed & 0xFFFFFFFF
         for i in range(1, self.periodN):
             self.mt[i] = 1812433253 * (self.mt[i - 1] ^ (self.mt[i - 1] >> 30)) + i

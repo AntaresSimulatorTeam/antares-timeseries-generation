@@ -9,11 +9,11 @@
 # SPDX-License-Identifier: MPL-2.0
 #
 # This file is part of the Antares project.
+import cProfile
 import random
 from pstats import SortKey
 
 import pytest
-import cProfile
 
 from mersenne_twister import MersenneTwister
 from random_generator import MersenneTwisterRNG
@@ -40,8 +40,8 @@ def cluster() -> ThermalCluster:
         npo_max=[1 for i in range(NB_OF_DAY)],
     )
 
-def test_rng():
 
+def test_rng():
     random = MersenneTwister()
     random.reset()
     for _ in range(100):
@@ -53,6 +53,7 @@ def test_random():
     rng.reset()
     for i in range(5):
         print(rng.next())
+
 
 def test_performances():
     with cProfile.Profile() as pr:
@@ -79,7 +80,6 @@ def test_performances():
 
 
 def test_compare_with_simulator():
-
     days = 365
     cluster = ThermalCluster(
         unit_count=10,
@@ -99,9 +99,10 @@ def test_compare_with_simulator():
 
     generator = ThermalDataGenerator(rng=MersenneTwisterRNG(), days_per_year=days)
     results = generator.generate_time_series(cluster, 1)
-    for i in range(365*24):
+    for i in range(365 * 24):
         print(str(i) + " : " + str(results.available_power[0][i]))
     print(results.available_power[0])
+
 
 def test_ts_value(cluster):
     ts_nb = 4
