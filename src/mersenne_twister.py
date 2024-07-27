@@ -38,14 +38,14 @@ class MersenneTwister:
     UPPER_MASK: int = 0x80000000
     LOWER_MASK: int = 0x7FFFFFFF
 
-    MAG: Tuple[int] = (0, MATRIX_A)
+    MAG: Tuple[int, int] = (0, MATRIX_A)
 
     mt: List[int] = [0] * periodN
 
     mti: int = 0
 
     @classmethod
-    def seed(self, seed: int):
+    def seed(self, seed: int) -> None:
         self.mt[0] = seed & 0xFFFFFFFF
         for i in range(1, self.periodN):
             self.mt[i] = 1812433253 * (self.mt[i - 1] ^ (self.mt[i - 1] >> 30)) + i
@@ -54,7 +54,7 @@ class MersenneTwister:
         self.mti = self.periodN
 
     @classmethod
-    def next(self):
+    def next(self) -> float:
         if self.mti == self.periodN:
             for j in range(self.periodN - self.periodM):
                 y = (self.mt[j] & self.UPPER_MASK) | (self.mt[j + 1] & self.LOWER_MASK)
@@ -88,5 +88,5 @@ class MersenneTwister:
         return y / 4294967295
 
     @classmethod
-    def reset(self):
+    def reset(self) -> None:
         self.seed(5489)

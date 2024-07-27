@@ -47,14 +47,14 @@ def test(cluster, data_directory):
 
     assert cld.unit_count == cluster.unit_count
     assert cld.nominal_power == cluster.nominal_power
-    assert cld.modulation.to_list() == cluster.modulation
+    assert cld.modulation == cluster.modulation
     assert cld.fo_law == cluster.fo_law
     assert cld.fo_volatility == cluster.fo_volatility
     assert cld.po_law == cluster.po_law
     assert cld.po_volatility == cluster.po_volatility
-    assert cld.fo_duration.to_list() == cluster.fo_duration
-    assert cld.fo_rate.to_list() == cluster.fo_rate
-    assert cld.po_duration.to_list() == cluster.po_duration
-    assert cld.po_rate.to_list() == cluster.po_rate
-    assert cld.npo_min.to_list() == cluster.npo_min
-    assert cld.npo_max.to_list() == cluster.npo_max
+    assert cld.fo_duration == cluster.fo_duration
+    assert cld.fo_rate == cluster.fo_rate
+    assert cld.po_duration == cluster.po_duration
+    assert cld.po_rate == cluster.po_rate
+    assert cld.npo_min == cluster.npo_min
+    assert cld.npo_max == cluster.npo_max

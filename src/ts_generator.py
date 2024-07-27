@@ -18,6 +18,7 @@ from random import random
 from typing import Any, List, Optional, Tuple
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from mersenne_twister import MersenneTwister
 
