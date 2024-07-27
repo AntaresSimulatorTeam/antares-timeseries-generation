@@ -99,9 +99,9 @@ def test_compare_with_simulator():
 
     generator = ThermalDataGenerator(rng=MersenneTwisterRNG(), days_per_year=days)
     results = generator.generate_time_series(cluster, 1)
-    for i in range(365 * 24):
-        print(str(i) + " : " + str(results.available_power[0][i]))
-    print(results.available_power[0])
+    assert results.daily_available_units[0][:5].tolist() == [9, 9, 9, 9, 8]
+    assert results.available_power[0][0] == 900
+    assert results.available_power[0][4 * 24] == 800
 
 
 def test_ts_value(cluster):

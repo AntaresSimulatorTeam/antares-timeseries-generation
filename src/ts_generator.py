@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import List
 
 import numpy as np
+import pandas as pd
 
 from duration_generator import ProbilityLaw, make_duration_generator
 from random_generator import RNG, MersenneTwisterRNG
@@ -29,6 +30,7 @@ class ThermalCluster:
     # nominal power
     nominal_power: float
     # modulation of the nominal power for a certain hour in the day (between 0 and 1)
+    # TODO: check that it should be 24 or 8760 ?
     modulation: List[float]  ### maybe group nominal_power and modulation in one vaiable
 
     # forced and planed outage parameters
@@ -50,6 +52,7 @@ class ThermalCluster:
 
 class OutputTimeseries:
     def __init__(self, ts_nb: int, days_per_year: int) -> None:
+        self.daily_available_units = np.zeros(shape=(ts_nb, days_per_year), dtype=int)
         # available power each hours
         self.available_power = np.empty((ts_nb, 24 * days_per_year), dtype=float)
         # number of pure planed, pure forced and mixed outage each day
@@ -63,7 +66,9 @@ class OutputTimeseries:
 
 
 class ThermalDataGenerator:
-    def __init__(self, rng: RNG = MersenneTwisterRNG(), days_per_year: int = 365) -> None:
+    def __init__(
+        self, rng: RNG = MersenneTwisterRNG(), days_per_year: int = 365
+    ) -> None:
         self.rng = rng
         self.days_per_year = days_per_year
 
@@ -80,7 +85,6 @@ class ThermalDataGenerator:
         ## ???
         self.ff = np.empty(days_per_year, dtype=float)  # ff = lf / (1 - lf)
         self.pp = np.empty(days_per_year, dtype=float)  # pp = lp / (1 - lp)
-
 
     def generate_time_series(
         self,
@@ -193,7 +197,9 @@ class ThermalDataGenerator:
                             FOC = d
                             if A <= cumul:
                                 break
-                elif self.lf[day] > FAILURE_RATE_EQ_1:  # TODO: not same comparison as cpp ?
+                elif (
+                    self.lf[day] > FAILURE_RATE_EQ_1
+                ):  # TODO: not same comparison as cpp ?
                     FOC = cur_nb_AU
                 else:  # self.lf[day] == 0
                     FOC = 0
@@ -303,12 +309,13 @@ class ThermalDataGenerator:
                     output.nb_mxo[ts_index][day] = MXO
                     output.pod[ts_index][day] = true_POD
                     output.fod[ts_index][day] = true_FOD
-                    for h in range(24):
-                        output.available_power[ts_index][hour] = (
-                            cur_nb_AU * cluster.nominal_power * cluster.modulation[h]
-                        )
-                        hour += 1
+                    output.daily_available_units[ts_index][day] = cur_nb_AU
 
                 now = (now + 1) % self.log_size
 
+        output.available_power = (
+            np.repeat(output.daily_available_units, 24, axis=1)
+            * cluster.nominal_power
+            * np.tile(cluster.modulation, self.days_per_year)
+        )
         return output
