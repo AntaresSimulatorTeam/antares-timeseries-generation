@@ -1,0 +1,7 @@
+cluster:
+  unit-count : 1
+  nominal-power : 500
+  fo-law : UNIFORM
+  fo-volatility : 0
+  po-law : UNIFORM
+  po-volatility : 0

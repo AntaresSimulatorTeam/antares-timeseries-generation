@@ -18,15 +18,22 @@ from random import random
 from typing import Any, List, Optional, Tuple
 
 import numpy as np
+from numpy.typing import ArrayLike
+
+from mersenne_twister import MersenneTwister
 
 # probabilities above FAILURE_RATE_EQ_1 are considered certain (equal to 1)
 FAILURE_RATE_EQ_1 = 0.999
 
 
-class rndgenerator:
+class PythonGenerator:
     @classmethod
     def next(self) -> float:
         return random()
+
+
+rndgenerator = MersenneTwister
+rndgenerator.seed(1)
 
 
 class ProbilityLaw(Enum):
@@ -80,7 +87,7 @@ class GeometricDurationGenerator(DurationGenerator):
         generation of random outage duration
         """
         rnd_nb = rndgenerator.next()
-        return min(int(1 + self.a[day] + self.b[day] * log(rnd_nb)), 1999)  ## to change
+        return min(int(1 + self.a[day] + self.b[day] * log(rnd_nb)), 1999)
 
 
 @dataclass
@@ -127,7 +134,6 @@ class ThermalDataGenerator:
     def __init__(self, days_per_year: int = 365) -> None:
         self.days_per_year = days_per_year
 
-        ## explain that ??
         self.log_size = 4000  # >= 5 * (max(df) + max(dp))
         # the number of starting (if positive)/ stopping (if negative) units (due to FO and PO) at a given time
         self.LOG = [0] * self.log_size
@@ -242,10 +248,6 @@ class ThermalDataGenerator:
             hour = 0
 
             for day in range(self.days_per_year):
-                if cur_nb_AU > 100:  ## it was like that in c++, i'm not shure why
-                    # maybe it's for the pow (FPOW, PPOW) calculation, if so it might not be the right place to do
-                    raise ValueError("avalaible unit number out of bound (> 100)")
-
                 # = return of units wich were in outage =
                 cur_nb_PO -= self.LOGP[now]
                 self.LOGP[
