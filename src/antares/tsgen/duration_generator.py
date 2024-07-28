@@ -16,7 +16,7 @@ from typing import List
 
 import numpy as np
 
-from random_generator import RNG
+from .random_generator import RNG
 
 
 class ProbabilityLaw(Enum):

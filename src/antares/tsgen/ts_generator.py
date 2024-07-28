@@ -14,10 +14,10 @@ from dataclasses import dataclass
 from typing import List
 
 import numpy as np
-import pandas as pd
+import numpy.typing as npt
 
-from duration_generator import ProbabilityLaw, make_duration_generator
-from random_generator import RNG, MersenneTwisterRNG
+from antares.tsgen.duration_generator import ProbabilityLaw, make_duration_generator
+from antares.tsgen.random_generator import RNG, MersenneTwisterRNG
 
 # probabilities above FAILURE_RATE_EQ_1 are considered certain (equal to 1)
 FAILURE_RATE_EQ_1 = 0.999

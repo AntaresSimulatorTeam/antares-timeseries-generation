@@ -14,8 +14,8 @@ import csv
 
 import pytest
 
-from cluster_import import import_thermal_cluster
-from ts_generator import ThermalCluster, ThermalDataGenerator
+from antares.tsgen.cluster_import import import_thermal_cluster
+from antares.tsgen.ts_generator import ThermalCluster, ThermalDataGenerator
 
 
 @pytest.fixture

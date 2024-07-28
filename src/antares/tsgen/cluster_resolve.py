@@ -12,8 +12,8 @@
 
 import pandas as pd
 
-from cluster_parsing import InputCluster
-from ts_generator import ProbabilityLaw, ThermalCluster
+from .cluster_parsing import InputCluster
+from .ts_generator import ProbabilityLaw, ThermalCluster
 
 
 def resolve_thermal_cluster(
