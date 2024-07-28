@@ -33,8 +33,8 @@ def test_cluster(cluster, output_directory):
     tot_po = 0
     tot_fo = 0
     for i in range(365 * ts_nb):
-        tot_po += results.nb_ppo[i // 365][i % 365] * 2
-        tot_fo += results.nb_pfo[i // 365][i % 365] * 8
+        tot_po += results.planned_outages[i // 365][i % 365] * 2
+        tot_fo += results.forced_outages[i // 365][i % 365] * 8
     true_por = tot_po / (365 * ts_nb)
     true_for = tot_fo / (365 * ts_nb)
 

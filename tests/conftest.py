@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from random_generator import RNG, MersenneTwisterRNG
+
 
 @pytest.fixture
 def data_directory() -> Path:
@@ -23,3 +25,8 @@ def data_directory() -> Path:
 @pytest.fixture
 def output_directory() -> Path:
     return Path(__file__).parent / "output"
+
+
+@pytest.fixture
+def rng() -> RNG:
+    return MersenneTwisterRNG()
