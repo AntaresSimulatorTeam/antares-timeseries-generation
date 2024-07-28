@@ -26,6 +26,7 @@ def data_directory() -> Path:
 def output_directory() -> Path:
     return Path(__file__).parent / "output"
 
+
 @pytest.fixture
 def rng() -> RNG:
     return MersenneTwisterRNG()
