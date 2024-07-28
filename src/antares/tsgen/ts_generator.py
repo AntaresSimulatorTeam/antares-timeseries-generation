@@ -31,16 +31,18 @@ class ThermalCluster:
     nominal_power: float
     # modulation of the nominal power for a certain hour in the day (between 0 and 1)
     # TODO: check that it should be 24 or 8760 ?
-    modulation: List[float]  ### maybe group nominal_power and modulation in one vaiable
+    modulation: npt.NDArray[
+        np.int_
+    ]  ### maybe group nominal_power and modulation in one vaiable
 
     # forced and planed outage parameters
     # indexed by day of the year
-    fo_duration: List[int]
-    fo_rate: List[float]
-    po_duration: List[int]
-    po_rate: List[float]
-    npo_min: List[int]  # number of planed outage min in a day
-    npo_max: List[int]  # number of planed outage max in a day
+    fo_duration: npt.NDArray[np.int_]
+    fo_rate: npt.NDArray[np.float_]
+    po_duration: npt.NDArray[np.int_]
+    po_rate: npt.NDArray[np.float_]
+    npo_min: npt.NDArray[np.int_]  # number of planed outage min in a day
+    npo_max: npt.NDArray[np.int_]  # number of planed outage max in a day
 
     # forced and planed outage probability law and volatility
     # volatility characterizes the distance from the expect at which the value drawn can be
@@ -96,48 +98,55 @@ class ThermalDataGenerator:
 
         # --- precalculation ---
         # cached values for (1-lf)**k and (1-lp)**k
-        self.FPOW: List[List[float]] = []
-        self.PPOW: List[List[float]] = []
+        # TODO: why +1 ?
+        self.FPOW = np.zeros(shape=(self.days, cluster.unit_count + 1))
+        self.PPOW = np.zeros(shape=(self.days, cluster.unit_count + 1))
 
-        for day in range(self.days):
-            # lf and lp represent the forced and programed failure rate
-            # failure rate means the probability to enter in outage each day
-            # its value is given by: OR / [OR + OD * (1 - OR)]
-            FOR = cluster.fo_rate[day]
-            FOD = cluster.fo_duration[day]
-            self.lf[day] = FOR / (FOR + FOD * (1 - FOR))
+        # lf and lp represent the forced and programed failure rate
+        # failure rate means the probability to enter in outage each day
+        # its value is given by: OR / [OR + OD * (1 - OR)]
+        self.lf = cluster.fo_rate / (
+            cluster.fo_rate + cluster.fo_duration * (1 - cluster.fo_rate)
+        )
+        self.lp = cluster.po_rate / (
+            cluster.po_rate + cluster.po_duration * (1 - cluster.po_rate)
+        )
 
-            POR = cluster.po_rate[day]
-            POD = cluster.po_duration[day]
-            self.lp[day] = POR / (POR + POD * (1 - POR))
+        invalid_days = self.lf < 0
+        if invalid_days.any():
+            raise ValueError(
+                f"forced failure rate is negative on days {invalid_days.nonzero()[0].tolist()}"
+            )
+        invalid_days = self.lp < 0
+        if invalid_days.any():
+            raise ValueError(
+                f"planned failure rate is negative on days {invalid_days.nonzero()[0].tolist()}"
+            )
 
-            if self.lf[day] < 0:
-                raise ValueError(f"forced failure rate is negative on day {day}")
-            if self.lp[day] < 0:
-                raise ValueError(f"programed failure rate is negative on day {day}")
+        ## i dont understand what these calulations are for
+        ## consequently reduce the lower failure rate
+        mask = self.lf < self.lp
+        self.lf[mask] *= (1 - self.lp[mask]) / (1 - self.lf[mask])
+        mask = self.lp < self.lf
+        self.lp[mask] *= (1 - self.lf[mask]) / (1 - self.lp[mask])
 
-            ## i dont understand what these calulations are for
-            ## consequently reduce the lower failure rate
-            if self.lf[day] < self.lp[day]:
-                self.lf[day] *= (1 - self.lp[day]) / (1 - self.lf[day])
-            if self.lp[day] < self.lf[day]:
-                self.lp[day] *= (1 - self.lf[day]) / (1 - self.lp[day])
+        a = np.zeros(shape=self.days, dtype=float)
+        b = np.zeros(shape=self.days, dtype=float)
+        mask = self.lf <= FAILURE_RATE_EQ_1
+        a[mask] = 1 - self.lf[mask]
+        self.ff[mask] = self.lf[mask] / a
 
-            a = 0
-            b = 0
-            if self.lf[day] <= FAILURE_RATE_EQ_1:
-                a = 1 - self.lf[day]
-                self.ff[day] = self.lf[day] / a
-            if self.lp[day] <= FAILURE_RATE_EQ_1:
-                b = 1 - self.lp[day]
-                self.pp[day] = self.lp[day] / b
+        mask = self.lp <= FAILURE_RATE_EQ_1
+        b[mask] = 1 - self.lp[mask]
+        self.pp[mask] = self.lp[mask] / b
 
-            # pre calculating power values
-            self.FPOW.append([])
-            self.PPOW.append([])
-            for k in range(cluster.unit_count + 1):
-                self.FPOW[-1].append(pow(a, k))
-                self.PPOW[-1].append(pow(b, k))
+        # change dimensions to get fpow and ppow with right shape
+        k = np.arange(cluster.unit_count + 1)
+        k.shape = (1, len(k))
+        a.shape = (self.days, 1)
+        b.shape = (self.days, 1)
+        self.FPOW = pow(a, k)
+        self.PPOW = pow(b, k)
 
         fod_generator = make_duration_generator(
             self.rng, cluster.fo_law, cluster.fo_volatility, cluster.fo_duration

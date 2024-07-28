@@ -12,9 +12,9 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from math import log, sqrt
-from typing import List
 
 import numpy as np
+import numpy.typing as npt
 
 from .random_generator import RNG
 
@@ -41,7 +41,10 @@ class GeneratorWrapper(DurationGenerator):
     """
 
     def __init__(
-        self, delegate: DurationGenerator, volatility: float, expecs: List[int]
+        self,
+        delegate: DurationGenerator,
+        volatility: float,
+        expecs: npt.NDArray[np.int_],
     ) -> None:
         self.volatility = volatility
         self.expectations = expecs
@@ -59,7 +62,9 @@ class GeneratorWrapper(DurationGenerator):
 
 
 class UniformDurationGenerator(DurationGenerator):
-    def __init__(self, rng: RNG, volatility: float, expecs: List[int]) -> None:
+    def __init__(
+        self, rng: RNG, volatility: float, expecs: npt.NDArray[np.int_]
+    ) -> None:
         self.rng = rng
         self.a = np.empty(len(expecs), dtype=float)
         self.b = np.empty(len(expecs), dtype=float)
@@ -77,7 +82,9 @@ class UniformDurationGenerator(DurationGenerator):
 
 
 class GeometricDurationGenerator(DurationGenerator):
-    def __init__(self, rng: RNG, volatility: float, expecs: List[int]) -> None:
+    def __init__(
+        self, rng: RNG, volatility: float, expecs: npt.NDArray[np.int_]
+    ) -> None:
         self.rng = rng
         self.a = np.empty(len(expecs), dtype=float)
         self.b = np.empty(len(expecs), dtype=float)
@@ -100,7 +107,7 @@ class GeometricDurationGenerator(DurationGenerator):
 
 
 def make_duration_generator(
-    rng: RNG, law: ProbabilityLaw, volatility: float, expectations: List[int]
+    rng: RNG, law: ProbabilityLaw, volatility: float, expectations: npt.NDArray[np.int_]
 ) -> DurationGenerator:
     """
     return a DurationGenerator for the given law

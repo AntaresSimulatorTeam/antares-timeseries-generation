@@ -25,17 +25,17 @@ def test_forced_outages(rng):
     cluster = ThermalCluster(
         unit_count=10,
         nominal_power=100,
-        modulation=[1 for i in range(24)],
+        modulation=np.ones(dtype=float, shape=24),
         fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
         po_law=ProbabilityLaw.UNIFORM,
         po_volatility=0,
-        fo_duration=[10 for i in range(days)],
-        fo_rate=[0.2 for i in range(days)],
-        po_duration=[10 for i in range(days)],
-        po_rate=[0 for i in range(days)],
-        npo_min=[0 for i in range(days)],
-        npo_max=[10 for i in range(days)],
+        fo_duration=10 * np.ones(dtype=int, shape=days),
+        fo_rate=0.2 * np.ones(dtype=float, shape=days),
+        po_duration=10 * np.ones(dtype=int, shape=days),
+        po_rate=np.zeros(dtype=float, shape=days),
+        npo_min=np.zeros(dtype=int, shape=days),
+        npo_max=10 * np.ones(dtype=int, shape=days),
     )
     cluster.modulation[12] = 0.5
 
@@ -60,17 +60,17 @@ def test_planned_outages(rng):
     cluster = ThermalCluster(
         unit_count=10,
         nominal_power=100,
-        modulation=[1 for i in range(24)],
+        modulation=np.ones(dtype=float, shape=24),
         fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
         po_law=ProbabilityLaw.UNIFORM,
         po_volatility=0,
-        fo_duration=[10 for i in range(days)],
-        fo_rate=[0 for i in range(days)],
-        po_duration=[10 for i in range(days)],
-        po_rate=[0.2 for i in range(days)],
-        npo_min=[0 for i in range(days)],
-        npo_max=[10 for i in range(days)],
+        fo_duration=10 * np.ones(dtype=int, shape=days),
+        fo_rate=np.zeros(dtype=float, shape=days),
+        po_duration=10 * np.ones(dtype=int, shape=days),
+        po_rate=0.2 * np.ones(dtype=float, shape=days),
+        npo_min=np.zeros(dtype=int, shape=days),
+        npo_max=10 * np.ones(dtype=int, shape=days),
     )
     cluster.modulation[12] = 0.5
 
@@ -94,17 +94,17 @@ def test_planned_outages_limitation(rng):
     cluster = ThermalCluster(
         unit_count=10,
         nominal_power=100,
-        modulation=[1 for i in range(24)],
+        modulation=np.ones(dtype=float, shape=24),
         fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
         po_law=ProbabilityLaw.UNIFORM,
         po_volatility=0,
-        fo_duration=[10 for i in range(days)],
-        fo_rate=[0 for i in range(days)],
-        po_duration=[2 for i in range(days)],
-        po_rate=[0.2 for i in range(days)],
-        npo_min=[0 for i in range(days)],
-        npo_max=[1 for i in range(days)],
+        fo_duration=10 * np.ones(dtype=int, shape=days),
+        fo_rate=np.zeros(dtype=float, shape=days),
+        po_duration=2 * np.ones(dtype=int, shape=days),
+        po_rate=0.2 * np.ones(dtype=float, shape=days),
+        npo_min=np.zeros(dtype=int, shape=days),
+        npo_max=1 * np.ones(dtype=int, shape=days),
     )
 
     generator = ThermalDataGenerator(rng=rng, days=days)
@@ -127,17 +127,17 @@ def test_planned_outages_min_limitation(rng):
     cluster = ThermalCluster(
         unit_count=10,
         nominal_power=100,
-        modulation=[1 for i in range(24)],
+        modulation=np.ones(dtype=float, shape=24),
         fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
         po_law=ProbabilityLaw.UNIFORM,
         po_volatility=0,
-        fo_duration=[10 for i in range(days)],
-        fo_rate=[0 for i in range(days)],
-        po_duration=[10 for i in range(days)],
-        po_rate=[0.2 for i in range(days)],
-        npo_min=[2 for i in range(days)],
-        npo_max=[5 for i in range(days)],
+        fo_duration=10 * np.ones(dtype=int, shape=days),
+        fo_rate=np.zeros(dtype=float, shape=days),
+        po_duration=10 * np.ones(dtype=int, shape=days),
+        po_rate=0.2 * np.ones(dtype=float, shape=days),
+        npo_min=2 * np.ones(dtype=int, shape=days),
+        npo_max=5 * np.ones(dtype=int, shape=days),
     )
 
     generator = ThermalDataGenerator(rng=rng, days=days)
