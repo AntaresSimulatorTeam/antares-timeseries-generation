@@ -16,7 +16,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-from duration_generator import ProbilityLaw, make_duration_generator
+from duration_generator import ProbabilityLaw, make_duration_generator
 from random_generator import RNG, MersenneTwisterRNG
 
 # probabilities above FAILURE_RATE_EQ_1 are considered certain (equal to 1)
@@ -44,9 +44,9 @@ class ThermalCluster:
 
     # forced and planed outage probability law and volatility
     # volatility characterizes the distance from the expect at which the value drawn can be
-    fo_law: ProbilityLaw
+    fo_law: ProbabilityLaw
     fo_volatility: float
-    po_law: ProbilityLaw
+    po_law: ProbabilityLaw
     po_volatility: float
 
 

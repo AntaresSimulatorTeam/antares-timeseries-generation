@@ -17,7 +17,7 @@ import pytest
 
 from mersenne_twister import MersenneTwister
 from random_generator import MersenneTwisterRNG
-from ts_generator import ProbilityLaw, ThermalCluster, ThermalDataGenerator
+from ts_generator import ProbabilityLaw, ThermalCluster, ThermalDataGenerator
 
 NB_OF_DAY = 10
 
@@ -28,9 +28,9 @@ def cluster() -> ThermalCluster:
         unit_count=1,
         nominal_power=500,
         modulation=[1 for i in range(24)],
-        fo_law=ProbilityLaw.UNIFORM,
+        fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
-        po_law=ProbilityLaw.UNIFORM,
+        po_law=ProbabilityLaw.UNIFORM,
         po_volatility=0,
         fo_duration=[2 for i in range(NB_OF_DAY)],
         fo_rate=[0.2 for i in range(NB_OF_DAY)],
@@ -62,9 +62,9 @@ def test_performances():
             unit_count=10,
             nominal_power=100,
             modulation=[1 for i in range(24)],
-            fo_law=ProbilityLaw.UNIFORM,
+            fo_law=ProbabilityLaw.UNIFORM,
             fo_volatility=0,
-            po_law=ProbilityLaw.UNIFORM,
+            po_law=ProbabilityLaw.UNIFORM,
             po_volatility=0,
             fo_duration=[10 for i in range(days)],
             fo_rate=[0.2 for i in range(days)],
@@ -85,9 +85,9 @@ def test_compare_with_simulator():
         unit_count=10,
         nominal_power=100,
         modulation=[1 for i in range(24)],
-        fo_law=ProbilityLaw.UNIFORM,
+        fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
-        po_law=ProbilityLaw.UNIFORM,
+        po_law=ProbabilityLaw.UNIFORM,
         po_volatility=0,
         fo_duration=[10 for i in range(days)],
         fo_rate=[0.2 for i in range(days)],
@@ -102,6 +102,29 @@ def test_compare_with_simulator():
     assert results.daily_available_units[0][:5].tolist() == [9, 9, 9, 9, 8]
     assert results.available_power[0][0] == 900
     assert results.available_power[0][4 * 24] == 800
+
+
+def test_planned_outages_limitation():
+    days = 365
+    cluster = ThermalCluster(
+        unit_count=10,
+        nominal_power=100,
+        modulation=[1 for i in range(24)],
+        fo_law=ProbabilityLaw.UNIFORM,
+        fo_volatility=0,
+        po_law=ProbabilityLaw.UNIFORM,
+        po_volatility=0,
+        fo_duration=[10 for i in range(days)],
+        fo_rate=[0 for i in range(days)],
+        po_duration=[2 for i in range(days)],
+        po_rate=[0.2 for i in range(days)],
+        npo_min=[0 for i in range(days)],
+        npo_max=[1 for i in range(days)],
+    )
+
+    generator = ThermalDataGenerator(rng=MersenneTwisterRNG(), days_per_year=10)
+    results = generator.generate_time_series(cluster, 1)
+    print(results.daily_available_units)
 
 
 def test_ts_value(cluster):

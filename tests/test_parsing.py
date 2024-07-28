@@ -14,7 +14,7 @@ import pytest
 
 from cluster_parsing import parse_cluster_ts, parse_yaml_cluster
 from cluster_resolve import resolve_thermal_cluster
-from ts_generator import ProbilityLaw, ThermalCluster, ThermalDataGenerator
+from ts_generator import ProbabilityLaw, ThermalCluster, ThermalDataGenerator
 
 NB_OF_DAY = 10
 
@@ -25,9 +25,9 @@ def cluster() -> ThermalCluster:
         unit_count=1,
         nominal_power=500,
         modulation=[1 for i in range(24)],
-        fo_law=ProbilityLaw.UNIFORM,
+        fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
-        po_law=ProbilityLaw.UNIFORM,
+        po_law=ProbabilityLaw.UNIFORM,
         po_volatility=0,
         fo_duration=[2 for i in range(NB_OF_DAY)],
         fo_rate=[0.2 for i in range(NB_OF_DAY)],

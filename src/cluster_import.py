@@ -14,11 +14,14 @@ from pathlib import Path
 
 import numpy as np
 
-from ts_generator import ProbilityLaw, ThermalCluster
+from ts_generator import ProbabilityLaw, ThermalCluster
 
 
 def import_thermal_cluster(path: Path, days_per_year: int = 365) -> ThermalCluster:
-    law_dict = {"UNIFORM": ProbilityLaw.UNIFORM, "GEOMETRIC": ProbilityLaw.GEOMETRIC}
+    law_dict = {
+        "UNIFORM": ProbabilityLaw.UNIFORM,
+        "GEOMETRIC": ProbabilityLaw.GEOMETRIC,
+    }
     array = np.genfromtxt(path, delimiter=",", dtype=str)
     return ThermalCluster(
         unit_count=int(array[1][1]),

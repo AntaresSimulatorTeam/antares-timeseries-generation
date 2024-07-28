@@ -19,7 +19,7 @@ import numpy as np
 from random_generator import RNG
 
 
-class ProbilityLaw(Enum):
+class ProbabilityLaw(Enum):
     UNIFORM = "UNIFORM"
     GEOMETRIC = "GEOMETRIC"
 
@@ -100,16 +100,16 @@ class GeometricDurationGenerator(DurationGenerator):
 
 
 def make_duration_generator(
-    rng: RNG, law: ProbilityLaw, volatility: float, expecs: List[int]
+    rng: RNG, law: ProbabilityLaw, volatility: float, expectations: List[int]
 ) -> DurationGenerator:
     """
     return a DurationGenerator for the given law
     """
     base_rng: DurationGenerator
-    if law == ProbilityLaw.UNIFORM:
-        base_rng = UniformDurationGenerator(rng, volatility, expecs)
-    elif law == ProbilityLaw.GEOMETRIC:
-        base_rng = GeometricDurationGenerator(rng, volatility, expecs)
+    if law == ProbabilityLaw.UNIFORM:
+        base_rng = UniformDurationGenerator(rng, volatility, expectations)
+    elif law == ProbabilityLaw.GEOMETRIC:
+        base_rng = GeometricDurationGenerator(rng, volatility, expectations)
     else:
         raise ValueError(f"Unknown law type: {law}")
-    return GeneratorWrapper(base_rng, volatility, expecs)
+    return GeneratorWrapper(base_rng, volatility, expectations)

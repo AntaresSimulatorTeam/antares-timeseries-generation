@@ -9,11 +9,55 @@
 # SPDX-License-Identifier: MPL-2.0
 #
 # This file is part of the Antares project.
+from unittest import expectedFailure
 
 import matplotlib.pyplot as plt
 import pytest
 
-from duration_generator import GeometricDurationGenerator, UniformDurationGenerator
+from duration_generator import (
+    GeometricDurationGenerator,
+    ProbabilityLaw,
+    UniformDurationGenerator,
+    make_duration_generator,
+)
+from random_generator import MersenneTwisterRNG
+
+
+@pytest.mark.parametrize(
+    "volatility,expectations,expected",
+    [
+        (0, [4, 2, 3, 1], [4, 2, 3, 1]),  # Expecting output = input
+        (1, [4, 2, 3, 1], [6, 1, 5, 1]),
+        (2, [4, 2, 3, 1], [8, 0, 7, 1]),  # Expecting twice the deviation as above
+    ],
+)
+def test_uniform_law_generator(rng, volatility, expectations, expected):
+    generator = UniformDurationGenerator(rng, volatility, expectations)
+    assert [generator.generate_duration(d) for d in range(len(expected))] == expected
+
+
+# TODO: results are suprisingly low, check this. Negative results can be obtained...
+@pytest.mark.parametrize(
+    "volatility,expectations,expected",
+    [
+        (0, [4, 2, 3, 1], [4, 2, 3, 1]),  # Expecting output = input
+        (1, [4, 2, 3, 1], [1, 3, 1, 1]),
+        (2, [4, 2, 3, 1], [-1, 5, 0, 1]),  # Expecting twice the deviation as above
+    ],
+)
+def test_geometric_law_generator(rng, volatility, expectations, expected):
+    generator = GeometricDurationGenerator(rng, volatility, expectations)
+    assert [generator.generate_duration(d) for d in range(len(expected))] == expected
+
+
+def test_legacy_generator_skips_rng_when_zero_vol():
+    rng = MersenneTwisterRNG()
+    generator = make_duration_generator(
+        rng, ProbabilityLaw.UNIFORM, volatility=0, expectations=[10, 10]
+    )
+    generator.generate_duration(0)
+    # Check we still have a random number identical to the first one that should be generated
+    assert rng.next() == MersenneTwisterRNG().next()
 
 
 def test_geometric_law(rng, output_directory):

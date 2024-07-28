@@ -13,7 +13,7 @@
 import pandas as pd
 
 from cluster_parsing import InputCluster
-from ts_generator import ProbilityLaw, ThermalCluster
+from ts_generator import ProbabilityLaw, ThermalCluster
 
 
 def resolve_thermal_cluster(
@@ -21,7 +21,10 @@ def resolve_thermal_cluster(
     parameters_ts: pd.core.frame.DataFrame,
     modulation: pd.core.frame.DataFrame,
 ) -> ThermalCluster:
-    law_dict = {"UNIFORM": ProbilityLaw.UNIFORM, "GEOMETRIC": ProbilityLaw.GEOMETRIC}
+    law_dict = {
+        "UNIFORM": ProbabilityLaw.UNIFORM,
+        "GEOMETRIC": ProbabilityLaw.GEOMETRIC,
+    }
     return ThermalCluster(
         unit_count=parsed_yaml.unit_count,
         nominal_power=parsed_yaml.nominal_power,
