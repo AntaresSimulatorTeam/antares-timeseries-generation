@@ -11,7 +11,7 @@
 # This file is part of the Antares project.
 import random
 
-from random_generator import MersenneTwisterRNG, PythonRNG
+from antares.tsgen.random_generator import MersenneTwisterRNG, PythonRNG
 
 
 def test_python_rng():

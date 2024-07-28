@@ -9,14 +9,15 @@
 # SPDX-License-Identifier: MPL-2.0
 #
 # This file is part of the Antares project.
-import cProfile
-import random
-from pstats import SortKey
 
 import numpy as np
 import numpy.testing as npt
 
-from ts_generator import ProbabilityLaw, ThermalCluster, ThermalDataGenerator
+from antares.tsgen.ts_generator import (
+    ProbabilityLaw,
+    ThermalCluster,
+    ThermalDataGenerator,
+)
 
 
 def test_forced_outages(rng):

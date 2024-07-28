@@ -12,9 +12,9 @@
 
 import pytest
 
-from cluster_parsing import parse_cluster_ts, parse_yaml_cluster
-from cluster_resolve import resolve_thermal_cluster
-from ts_generator import ProbabilityLaw, ThermalCluster, ThermalDataGenerator
+from antares.tsgen.cluster_parsing import parse_cluster_ts, parse_yaml_cluster
+from antares.tsgen.cluster_resolve import resolve_thermal_cluster
+from antares.tsgen.ts_generator import ProbabilityLaw, ThermalCluster
 
 NB_OF_DAY = 10
 

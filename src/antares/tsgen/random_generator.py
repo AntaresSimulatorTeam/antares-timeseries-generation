@@ -13,7 +13,7 @@ import random
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from mersenne_twister import MersenneTwister
+from .mersenne_twister import MersenneTwister
 
 
 class RNG(ABC):

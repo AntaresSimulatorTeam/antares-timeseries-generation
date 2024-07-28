@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from random_generator import RNG, MersenneTwisterRNG
+from antares.tsgen.random_generator import RNG, MersenneTwisterRNG
 
 
 @pytest.fixture
