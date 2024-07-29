@@ -10,6 +10,8 @@
 #
 # This file is part of the Antares project.
 
+import numpy as np
+import numpy.testing as npt
 import pytest
 
 from antares.tsgen.cluster_parsing import parse_cluster_ts, parse_yaml_cluster
@@ -24,17 +26,17 @@ def cluster() -> ThermalCluster:
     return ThermalCluster(
         unit_count=1,
         nominal_power=500,
-        modulation=[1 for i in range(24)],
+        modulation=np.ones(dtype=float, shape=24),
         fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
         po_law=ProbabilityLaw.UNIFORM,
         po_volatility=0,
-        fo_duration=[2 for i in range(NB_OF_DAY)],
-        fo_rate=[0.2 for i in range(NB_OF_DAY)],
-        po_duration=[1 for i in range(NB_OF_DAY)],
-        po_rate=[0.1 for i in range(NB_OF_DAY)],
-        npo_min=[0 for i in range(NB_OF_DAY)],
-        npo_max=[1 for i in range(NB_OF_DAY)],
+        fo_duration=np.ones(dtype=int, shape=NB_OF_DAY) * 2,
+        fo_rate=np.ones(dtype=float, shape=NB_OF_DAY) * 0.2,
+        po_duration=np.ones(dtype=int, shape=NB_OF_DAY),
+        po_rate=np.ones(dtype=float, shape=NB_OF_DAY) * 0.1,
+        npo_min=np.zeros(dtype=int, shape=NB_OF_DAY),
+        npo_max=np.ones(dtype=int, shape=NB_OF_DAY),
     )
 
 
@@ -47,14 +49,14 @@ def test(cluster, data_directory):
 
     assert cld.unit_count == cluster.unit_count
     assert cld.nominal_power == cluster.nominal_power
-    assert cld.modulation == cluster.modulation
+    npt.assert_equal(cld.modulation, cluster.modulation)
     assert cld.fo_law == cluster.fo_law
     assert cld.fo_volatility == cluster.fo_volatility
     assert cld.po_law == cluster.po_law
     assert cld.po_volatility == cluster.po_volatility
-    assert cld.fo_duration == cluster.fo_duration
-    assert cld.fo_rate == cluster.fo_rate
-    assert cld.po_duration == cluster.po_duration
-    assert cld.po_rate == cluster.po_rate
-    assert cld.npo_min == cluster.npo_min
-    assert cld.npo_max == cluster.npo_max
+    npt.assert_equal(cld.fo_duration, cluster.fo_duration)
+    npt.assert_equal(cld.fo_rate, cluster.fo_rate)
+    npt.assert_equal(cld.po_duration, cluster.po_duration)
+    npt.assert_equal(cld.po_rate, cluster.po_rate)
+    npt.assert_equal(cld.npo_min, cluster.npo_min)
+    npt.assert_equal(cld.npo_max, cluster.npo_max)
