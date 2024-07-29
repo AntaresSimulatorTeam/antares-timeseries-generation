@@ -23,6 +23,10 @@ from antares.tsgen.random_generator import RNG, MersenneTwisterRNG
 FAILURE_RATE_EQ_1 = 0.999
 
 
+IntArray = npt.NDArray[np.int_]
+FloatArray = npt.NDArray[np.float_]
+
+
 @dataclass
 class ThermalCluster:
     # available units of the cluster
@@ -30,16 +34,16 @@ class ThermalCluster:
     # nominal power
     nominal_power: float
     # modulation of the nominal power for a certain hour in the day (between 0 and 1)
-    modulation: npt.NDArray[np.int_]
+    modulation: IntArray
 
     # forced and planed outage parameters
     # indexed by day of the year
-    fo_duration: npt.NDArray[np.int_]
-    fo_rate: npt.NDArray[np.float_]
-    po_duration: npt.NDArray[np.int_]
-    po_rate: npt.NDArray[np.float_]
-    npo_min: npt.NDArray[np.int_]  # number of planed outage min in a day
-    npo_max: npt.NDArray[np.int_]  # number of planed outage max in a day
+    fo_duration: IntArray
+    fo_rate: FloatArray
+    po_duration: IntArray
+    po_rate: FloatArray
+    npo_min: IntArray  # number of planed outage min in a day
+    npo_max: IntArray  # number of planed outage max in a day
 
     # forced and planed outage probability law and volatility
     # volatility characterizes the distance from the expect at which the value drawn can be
@@ -142,7 +146,7 @@ class OutputTimeseries:
         self.forced_outage_durations = np.zeros((ts_count, days), dtype=int)
 
 
-def _column_powers(column: npt.NDArray[np.float_], width: int) -> npt.NDArray:
+def _column_powers(column: FloatArray, width: int) -> npt.NDArray:
     """
     Returns a matrix of given width where column[i] is the ith power of the input vector.
     """
@@ -182,7 +186,7 @@ def _categorize_outages(
 
 
 class ForcedOutagesDrawer:
-    def __init__(self, rng: RNG, unit_count: int, failure_rate: npt.NDArray[np.float_]):
+    def __init__(self, rng: RNG, unit_count: int, failure_rate: FloatArray):
         days = len(failure_rate)
         self.rng = rng
         self.failure_rate = failure_rate
@@ -214,9 +218,7 @@ class ForcedOutagesDrawer:
         return fo_candidates
 
 
-def _compute_failure_rates(
-    outage_rates: npt.NDArray[np.float_], durations: npt.NDArray[np.int_]
-) -> npt.NDArray[np.float_]:
+def _compute_failure_rates(outage_rates: FloatArray, durations: IntArray) -> FloatArray:
     """
     Daily failure rates (= chance that an outage occurs on a given day), computed
     from outage rates (= share of a period during which a unit is in outage),
@@ -225,9 +227,7 @@ def _compute_failure_rates(
     return outage_rates / (outage_rates + durations * (1 - outage_rates))
 
 
-def _combine_failure_rates(
-    rates1: npt.NDArray[np.float_], rates2: npt.NDArray[np.float_]
-) -> None:
+def _combine_failure_rates(rates1: FloatArray, rates2: FloatArray) -> None:
     ## i dont understand what these calulations are for
     ## consequently reduce the lower failure rate
     mask = rates1 < rates2
