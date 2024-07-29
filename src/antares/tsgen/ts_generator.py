@@ -72,21 +72,6 @@ class ThermalDataGenerator:
         self.rng = rng
         self.days = days
 
-        # TODO: Remove this log size limits, seems useless and error prone if very large durations
-        self.log_size = 4000  # >= 5 * (max(df) + max(dp))
-        # the number of starting (if positive)/ stopping (if negative) units (due to FO and PO) at a given time
-        self.LOG = [0] * self.log_size
-        # same but only for PO; necessary to ensure maximum and minimum PO is respected
-        self.LOGP = [0] * self.log_size
-
-        # pogramed and forced outage rate
-        self.lf = np.zeros(days, dtype=float)
-        self.lp = np.zeros(days, dtype=float)
-
-        ## ???
-        self.ff = np.zeros(days, dtype=float)  # ff = lf / (1 - lf)
-        self.pp = np.zeros(days, dtype=float)  # pp = lp / (1 - lp)
-
     def generate_time_series(
         self,
         cluster: ThermalCluster,
@@ -96,28 +81,43 @@ class ThermalDataGenerator:
         generation of multiple timeseries for a given thermal cluster
         """
 
+        # TODO: Remove this log size limits, seems useless and error prone if very large durations
+        log_size = 4000  # >= 5 * (max(df) + max(dp))
+        # the number of starting (if positive)/ stopping (if negative) units (due to FO and PO) at a given time
+        log = np.zeros(log_size, dtype=int)
+        # same but only for PO; necessary to ensure maximum and minimum PO is respected
+        logp = np.zeros(log_size, dtype=int)
+
+        # pogramed and forced outage rate
+        lf = np.zeros(self.days, dtype=float)
+        lp = np.zeros(self.days, dtype=float)
+
+        ## ???
+        ff = np.zeros(self.days, dtype=float)  # ff = lf / (1 - lf)
+        pp = np.zeros(self.days, dtype=float)  # pp = lp / (1 - lp)
+
         # --- precalculation ---
         # cached values for (1-lf)**k and (1-lp)**k
         # TODO: why +1 ?
-        self.FPOW = np.zeros(shape=(self.days, cluster.unit_count + 1))
-        self.PPOW = np.zeros(shape=(self.days, cluster.unit_count + 1))
+        fpow = np.zeros(shape=(self.days, cluster.unit_count + 1))
+        ppow = np.zeros(shape=(self.days, cluster.unit_count + 1))
 
         # lf and lp represent the forced and programed failure rate
         # failure rate means the probability to enter in outage each day
         # its value is given by: OR / [OR + OD * (1 - OR)]
-        self.lf = cluster.fo_rate / (
+        lf = cluster.fo_rate / (
             cluster.fo_rate + cluster.fo_duration * (1 - cluster.fo_rate)
         )
-        self.lp = cluster.po_rate / (
+        lp = cluster.po_rate / (
             cluster.po_rate + cluster.po_duration * (1 - cluster.po_rate)
         )
 
-        invalid_days = self.lf < 0
+        invalid_days = lf < 0
         if invalid_days.any():
             raise ValueError(
                 f"forced failure rate is negative on days {invalid_days.nonzero()[0].tolist()}"
             )
-        invalid_days = self.lp < 0
+        invalid_days = lp < 0
         if invalid_days.any():
             raise ValueError(
                 f"planned failure rate is negative on days {invalid_days.nonzero()[0].tolist()}"
@@ -125,28 +125,28 @@ class ThermalDataGenerator:
 
         ## i dont understand what these calulations are for
         ## consequently reduce the lower failure rate
-        mask = self.lf < self.lp
-        self.lf[mask] *= (1 - self.lp[mask]) / (1 - self.lf[mask])
-        mask = self.lp < self.lf
-        self.lp[mask] *= (1 - self.lf[mask]) / (1 - self.lp[mask])
+        mask = lf < lp
+        lf[mask] *= (1 - lp[mask]) / (1 - lf[mask])
+        mask = lp < lf
+        lp[mask] *= (1 - lf[mask]) / (1 - lp[mask])
 
         a = np.zeros(shape=self.days, dtype=float)
         b = np.zeros(shape=self.days, dtype=float)
-        mask = self.lf <= FAILURE_RATE_EQ_1
-        a[mask] = 1 - self.lf[mask]
-        self.ff[mask] = self.lf[mask] / a
+        mask = lf <= FAILURE_RATE_EQ_1
+        a[mask] = 1 - lf[mask]
+        ff[mask] = lf[mask] / a
 
-        mask = self.lp <= FAILURE_RATE_EQ_1
-        b[mask] = 1 - self.lp[mask]
-        self.pp[mask] = self.lp[mask] / b
+        mask = lp <= FAILURE_RATE_EQ_1
+        b[mask] = 1 - lp[mask]
+        pp[mask] = lp[mask] / b
 
         # change dimensions to get fpow and ppow with right shape
         k = np.arange(cluster.unit_count + 1)
         k.shape = (1, len(k))
         a.shape = (self.days, 1)
         b.shape = (self.days, 1)
-        self.FPOW = pow(a, k)
-        self.PPOW = pow(b, k)
+        fpow = pow(a, k)
+        ppow = pow(b, k)
 
         fod_generator = make_duration_generator(
             self.rng, cluster.fo_law, cluster.fo_volatility, cluster.fo_duration
@@ -162,164 +162,168 @@ class ThermalDataGenerator:
         # output that will be returned
         output = OutputTimeseries(number_of_timeseries, self.days)
 
-        # mixed, pure planned and pure force outage
-        MXO = 0
-        PFO = 0
-        PPO = 0
-
         # dates
         now = 0
-        fut = 0
 
         # current number of PO and AU (avlaible units)
-        cur_nb_PO = 0
-        cur_nb_AU = cluster.unit_count
+        current_planned_outages = 0
+        current_available_units = cluster.unit_count
         # stock is a way to keep the number of PO pushed back due to PO max / antcipated due to PO min
         # stock > 0 number of PO pushed back, stock < 0 number of PO antcipated
         stock = 0
 
         for ts_index in range(-2, number_of_timeseries):
-            # hour in the year
-            hour = 0
-
             for day in range(self.days):
                 # = return of units wich were in outage =
-                cur_nb_PO -= self.LOGP[now]
-                self.LOGP[
+                current_planned_outages -= logp[now]
+                logp[
                     now
                 ] = 0  # set to 0 because this cell will be use again later (in self.log_size days)
-                cur_nb_AU += self.LOG[now]
-                self.LOG[now] = 0
+                current_available_units += log[now]
+                log[now] = 0
 
-                FOC = 0
-                POC = 0
+                fo_candidates = 0
+                po_candidates = 0
 
-                if self.lf[day] > 0 and self.lf[day] <= FAILURE_RATE_EQ_1:
+                if lf[day] > 0 and lf[day] <= FAILURE_RATE_EQ_1:
                     A = self.rng.next()
-                    last = self.FPOW[day][cur_nb_AU]
+                    last = fpow[day][current_available_units]
                     if A > last:
                         cumul = last
-                        for d in range(1, cur_nb_AU + 1):
-                            last = last * self.ff[day] * (cur_nb_AU + 1 - d) / d
+                        for d in range(1, current_available_units + 1):
+                            last = (
+                                last * ff[day] * (current_available_units + 1 - d) / d
+                            )
                             cumul += last
-                            FOC = d
+                            fo_candidates = d
                             if A <= cumul:
                                 break
-                elif (
-                    self.lf[day] > FAILURE_RATE_EQ_1
-                ):  # TODO: not same comparison as cpp ?
-                    FOC = cur_nb_AU
+                elif lf[day] > FAILURE_RATE_EQ_1:  # TODO: not same comparison as cpp ?
+                    fo_candidates = current_available_units
                 else:  # self.lf[day] == 0
-                    FOC = 0
+                    fo_candidates = 0
 
-                if self.lp[day] > 0 and self.lp[day] <= FAILURE_RATE_EQ_1:
-                    # apparent number of available units
-                    AUN_app = cur_nb_AU
-                    if stock >= 0 and stock <= cur_nb_AU:
-                        AUN_app -= stock
-                    elif stock > cur_nb_AU:
-                        AUN_app = 0
+                if lp[day] > 0 and lp[day] <= FAILURE_RATE_EQ_1:
+                    apparent_available_units = current_available_units
+                    if stock >= 0 and stock <= current_available_units:
+                        apparent_available_units -= stock
+                    elif stock > current_available_units:
+                        apparent_available_units = 0
 
                     A = self.rng.next()
-                    last = self.PPOW[day][cur_nb_AU]
+                    last = ppow[day, apparent_available_units]
                     if A > last:
                         cumul = last
-                        for d in range(1, cur_nb_AU + 1):
-                            last = last * self.pp[day] * (cur_nb_AU + 1 - d) / d
+                        for d in range(1, apparent_available_units + 1):
+                            last = (
+                                last * pp[day] * (apparent_available_units + 1 - d) / d
+                            )
                             cumul += last
-                            POC = d
+                            po_candidates = d
                             if A <= cumul:
                                 break
-                elif self.lp[day] > FAILURE_RATE_EQ_1:
-                    POC = cur_nb_AU
+                elif lp[day] > FAILURE_RATE_EQ_1:
+                    po_candidates = current_available_units
                 else:  # self.lf[day] == 0
-                    POC = 0
+                    po_candidates = 0
 
                 # apparent PO is compared to cur_nb_AU, considering stock
-                candidate = POC + stock
-                if 0 <= candidate and candidate <= cur_nb_AU:
-                    POC = candidate
+                candidate = po_candidates + stock
+                if 0 <= candidate and candidate <= current_available_units:
+                    po_candidates = candidate
                     stock = 0
-                if candidate > cur_nb_AU:
-                    POC = cur_nb_AU
-                    stock = candidate - cur_nb_AU
+                if candidate > current_available_units:
+                    po_candidates = current_available_units
+                    stock = candidate - current_available_units
                 if candidate < 0:
-                    POC = 0
+                    po_candidates = 0
                     stock = candidate
 
                 # = checking min and max PO =
-                if POC + cur_nb_PO > cluster.npo_max[day]:
+                if po_candidates + current_planned_outages > cluster.npo_max[day]:
                     # too many PO to place
                     # the excedent is placed in stock
-                    POC = cluster.npo_max[day] - cur_nb_PO
-                    cur_nb_PO += POC
-                elif POC + cur_nb_PO < cluster.npo_min[day]:
-                    if cluster.npo_min[day] - cur_nb_PO > cur_nb_AU:
-                        stock -= cur_nb_AU - POC
-                        POC = cur_nb_AU
-                        cur_nb_PO += POC
+                    po_candidates = cluster.npo_max[day] - current_planned_outages
+                    current_planned_outages += po_candidates
+                elif po_candidates + current_planned_outages < cluster.npo_min[day]:
+                    if (
+                        cluster.npo_min[day] - current_planned_outages
+                        > current_available_units
+                    ):
+                        stock -= current_available_units - po_candidates
+                        po_candidates = current_available_units
+                        current_planned_outages += po_candidates
                     else:
-                        stock -= cluster.npo_min[day] - (POC + cur_nb_PO)
-                        POC = cluster.npo_min[day] - cur_nb_PO
-                        cur_nb_PO += POC
+                        stock -= cluster.npo_min[day] - (
+                            po_candidates + current_planned_outages
+                        )
+                        po_candidates = cluster.npo_min[day] - current_planned_outages
+                        current_planned_outages += po_candidates
                 else:
-                    cur_nb_PO += POC
+                    current_planned_outages += po_candidates
 
                 # = distributing outage in category =
                 # pure planed, pure forced, mixed
+                mixed_outages = 0
+                pure_forced_outages = 0
+                pure_planned_outages = 0
                 if cluster.unit_count == 1:
-                    if POC == 1 and FOC == 1:
-                        MXO = 1
-                        PPO = 0
-                        PFO = 0
+                    if po_candidates == 1 and fo_candidates == 1:
+                        mixed_outages = 1
+                        pure_planned_outages = 0
+                        pure_forced_outages = 0
                     else:
-                        MXO = 0
-                        PPO = int(POC)
-                        PFO = int(FOC)
+                        mixed_outages = 0
+                        pure_planned_outages = int(po_candidates)
+                        pure_forced_outages = int(fo_candidates)
                 else:
-                    if cur_nb_AU != 0:
-                        MXO = int(POC * FOC // cur_nb_AU)
-                        PPO = int(POC - MXO)
-                        PFO = int(FOC - MXO)
+                    if current_available_units != 0:
+                        mixed_outages = int(
+                            po_candidates * fo_candidates // current_available_units
+                        )
+                        pure_planned_outages = int(po_candidates - mixed_outages)
+                        pure_forced_outages = int(fo_candidates - mixed_outages)
                     else:
-                        MXO = 0
-                        PPO = 0
-                        PFO = 0
+                        mixed_outages = 0
+                        pure_planned_outages = 0
+                        pure_forced_outages = 0
 
                 # = units stopping =
-                cur_nb_AU -= PPO + PFO + MXO
+                current_available_units -= (
+                    pure_planned_outages + pure_forced_outages + mixed_outages
+                )
 
                 # = generating outage duration = (from the law)
-                true_POD = 0
-                true_FOD = 0
+                po_duration = 0
+                fo_duration = 0
 
-                if PPO != 0 or MXO != 0:
-                    true_POD = pod_generator.generate_duration(day)
-                if PFO != 0 or MXO != 0:
-                    true_FOD = fod_generator.generate_duration(day)
+                if pure_planned_outages != 0 or mixed_outages != 0:
+                    po_duration = pod_generator.generate_duration(day)
+                if pure_forced_outages != 0 or mixed_outages != 0:
+                    fo_duration = fod_generator.generate_duration(day)
 
-                if PPO != 0:
-                    fut = (now + true_POD) % self.log_size
-                    self.LOG[fut] += PPO
-                    self.LOGP[fut] += PPO
-                if PFO != 0:
-                    fut = (now + true_FOD) % self.log_size
-                    self.LOG[fut] += PFO
-                if MXO != 0:
-                    fut = (now + true_POD + true_FOD) % self.log_size
-                    self.LOG[fut] += MXO
-                    self.LOGP[fut] += MXO
+                if pure_planned_outages != 0:
+                    return_timestep = (now + po_duration) % log_size
+                    log[return_timestep] += pure_planned_outages
+                    logp[return_timestep] += pure_planned_outages
+                if pure_forced_outages != 0:
+                    return_timestep = (now + fo_duration) % log_size
+                    log[return_timestep] += pure_forced_outages
+                if mixed_outages != 0:
+                    return_timestep = (now + po_duration + fo_duration) % log_size
+                    log[return_timestep] += mixed_outages
+                    logp[return_timestep] += mixed_outages
 
                 # = storing output in output arrays =
                 if ts_index >= 0:  # drop the 2 first generated timeseries
-                    output.planned_outages[ts_index][day] = PPO
-                    output.forced_outages[ts_index][day] = PFO
-                    output.mixed_outages[ts_index][day] = MXO
-                    output.planned_outage_durations[ts_index][day] = true_POD
-                    output.forced_outage_durations[ts_index][day] = true_FOD
-                    output.available_units[ts_index][day] = cur_nb_AU
+                    output.planned_outages[ts_index][day] = pure_planned_outages
+                    output.forced_outages[ts_index][day] = pure_forced_outages
+                    output.mixed_outages[ts_index][day] = mixed_outages
+                    output.planned_outage_durations[ts_index][day] = po_duration
+                    output.forced_outage_durations[ts_index][day] = fo_duration
+                    output.available_units[ts_index][day] = current_available_units
 
-                now = (now + 1) % self.log_size
+                now = (now + 1) % log_size
 
         output.available_power = (
             np.repeat(output.available_units, 24, axis=1)
