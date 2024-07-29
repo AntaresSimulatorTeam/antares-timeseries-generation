@@ -66,12 +66,21 @@ class OutputTimeseries:
 
 def _column_powers(column: npt.NDArray[np.float_], width: int) -> npt.NDArray:
     """
-    Returns a matrix of given width where column[i] is the ith power of the input column.
+    Returns a matrix of given width where column[i] is the ith power of the input vector.
     """
     powers = np.arange(width)
     powers.shape = (1, len(powers))
     column.shape = (len(column), 1)
     return pow(column, powers)
+
+
+def _daily_to_hourly(daily_data: npt.NDArray) -> npt.NDArray:
+    """
+    Converts daily rows of a 2D array to hourly rows
+    """
+    if daily_data.ndim != 2:
+        raise ValueError("Daily data must be a 2D-array")
+    return np.repeat(daily_data, 24, axis=1)
 
 
 class ThermalDataGenerator:
@@ -319,16 +328,16 @@ class ThermalDataGenerator:
 
                 # = storing output in output arrays =
                 if ts_index >= 0:  # drop the 2 first generated timeseries
-                    output.planned_outages[ts_index][day] = pure_planned_outages
-                    output.forced_outages[ts_index][day] = pure_forced_outages
-                    output.mixed_outages[ts_index][day] = mixed_outages
-                    output.planned_outage_durations[ts_index][day] = po_duration
-                    output.forced_outage_durations[ts_index][day] = fo_duration
-                    output.available_units[ts_index][day] = current_available_units
+                    output.planned_outages[ts_index, day] = pure_planned_outages
+                    output.forced_outages[ts_index, day] = pure_forced_outages
+                    output.mixed_outages[ts_index, day] = mixed_outages
+                    output.planned_outage_durations[ts_index, day] = po_duration
+                    output.forced_outage_durations[ts_index, day] = fo_duration
+                    output.available_units[ts_index, day] = current_available_units
 
                 now = (now + 1) % log_size
 
-        hourly_available_units = np.repeat(output.available_units, 24, axis=1)
+        hourly_available_units = _daily_to_hourly(output.available_units)
         hourly_modulation = np.tile(cluster.modulation, self.days)
         output.available_power = (
             hourly_available_units * cluster.nominal_power * hourly_modulation
