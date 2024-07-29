@@ -30,10 +30,7 @@ class ThermalCluster:
     # nominal power
     nominal_power: float
     # modulation of the nominal power for a certain hour in the day (between 0 and 1)
-    # TODO: check that it should be 24 or 8760 ?
-    modulation: npt.NDArray[
-        np.int_
-    ]  ### maybe group nominal_power and modulation in one vaiable
+    modulation: npt.NDArray[np.int_]
 
     # forced and planed outage parameters
     # indexed by day of the year
@@ -67,6 +64,16 @@ class OutputTimeseries:
         self.forced_outage_durations = np.zeros((ts_count, days), dtype=int)
 
 
+def _column_powers(column: npt.NDArray[np.float_], width: int) -> npt.NDArray:
+    """
+    Returns a matrix of given width where column[i] is the ith power of the input column.
+    """
+    powers = np.arange(width)
+    powers.shape = (1, len(powers))
+    column.shape = (len(column), 1)
+    return pow(column, powers)
+
+
 class ThermalDataGenerator:
     def __init__(self, rng: RNG = MersenneTwisterRNG(), days: int = 365) -> None:
         self.rng = rng
@@ -81,7 +88,7 @@ class ThermalDataGenerator:
         generation of multiple timeseries for a given thermal cluster
         """
 
-        # TODO: Remove this log size limits, seems useless and error prone if very large durations
+        # TODO: Remove this log size limit, seems useless and error prone if very large durations
         log_size = 4000  # >= 5 * (max(df) + max(dp))
         # the number of starting (if positive)/ stopping (if negative) units (due to FO and PO) at a given time
         log = np.zeros(log_size, dtype=int)
@@ -89,8 +96,8 @@ class ThermalDataGenerator:
         logp = np.zeros(log_size, dtype=int)
 
         # pogramed and forced outage rate
-        lf = np.zeros(self.days, dtype=float)
-        lp = np.zeros(self.days, dtype=float)
+        daily_fo_rate = np.zeros(self.days, dtype=float)
+        daily_po_rate = np.zeros(self.days, dtype=float)
 
         ## ???
         ff = np.zeros(self.days, dtype=float)  # ff = lf / (1 - lf)
@@ -98,26 +105,25 @@ class ThermalDataGenerator:
 
         # --- precalculation ---
         # cached values for (1-lf)**k and (1-lp)**k
-        # TODO: why +1 ?
         fpow = np.zeros(shape=(self.days, cluster.unit_count + 1))
         ppow = np.zeros(shape=(self.days, cluster.unit_count + 1))
 
         # lf and lp represent the forced and programed failure rate
         # failure rate means the probability to enter in outage each day
         # its value is given by: OR / [OR + OD * (1 - OR)]
-        lf = cluster.fo_rate / (
+        daily_fo_rate = cluster.fo_rate / (
             cluster.fo_rate + cluster.fo_duration * (1 - cluster.fo_rate)
         )
-        lp = cluster.po_rate / (
+        daily_po_rate = cluster.po_rate / (
             cluster.po_rate + cluster.po_duration * (1 - cluster.po_rate)
         )
 
-        invalid_days = lf < 0
+        invalid_days = daily_fo_rate < 0
         if invalid_days.any():
             raise ValueError(
                 f"forced failure rate is negative on days {invalid_days.nonzero()[0].tolist()}"
             )
-        invalid_days = lp < 0
+        invalid_days = daily_po_rate < 0
         if invalid_days.any():
             raise ValueError(
                 f"planned failure rate is negative on days {invalid_days.nonzero()[0].tolist()}"
@@ -125,28 +131,23 @@ class ThermalDataGenerator:
 
         ## i dont understand what these calulations are for
         ## consequently reduce the lower failure rate
-        mask = lf < lp
-        lf[mask] *= (1 - lp[mask]) / (1 - lf[mask])
-        mask = lp < lf
-        lp[mask] *= (1 - lf[mask]) / (1 - lp[mask])
+        mask = daily_fo_rate < daily_po_rate
+        daily_fo_rate[mask] *= (1 - daily_po_rate[mask]) / (1 - daily_fo_rate[mask])
+        mask = daily_po_rate < daily_fo_rate
+        daily_po_rate[mask] *= (1 - daily_fo_rate[mask]) / (1 - daily_po_rate[mask])
 
         a = np.zeros(shape=self.days, dtype=float)
         b = np.zeros(shape=self.days, dtype=float)
-        mask = lf <= FAILURE_RATE_EQ_1
-        a[mask] = 1 - lf[mask]
-        ff[mask] = lf[mask] / a
+        mask = daily_fo_rate <= FAILURE_RATE_EQ_1
+        a[mask] = 1 - daily_fo_rate[mask]
+        ff[mask] = daily_fo_rate[mask] / a
 
-        mask = lp <= FAILURE_RATE_EQ_1
-        b[mask] = 1 - lp[mask]
-        pp[mask] = lp[mask] / b
+        mask = daily_po_rate <= FAILURE_RATE_EQ_1
+        b[mask] = 1 - daily_po_rate[mask]
+        pp[mask] = daily_po_rate[mask] / b
 
-        # change dimensions to get fpow and ppow with right shape
-        k = np.arange(cluster.unit_count + 1)
-        k.shape = (1, len(k))
-        a.shape = (self.days, 1)
-        b.shape = (self.days, 1)
-        fpow = pow(a, k)
-        ppow = pow(b, k)
+        fpow = _column_powers(a, cluster.unit_count + 1)
+        ppow = _column_powers(b, cluster.unit_count + 1)
 
         fod_generator = make_duration_generator(
             self.rng, cluster.fo_law, cluster.fo_volatility, cluster.fo_duration
@@ -185,10 +186,10 @@ class ThermalDataGenerator:
                 fo_candidates = 0
                 po_candidates = 0
 
-                if lf[day] > 0 and lf[day] <= FAILURE_RATE_EQ_1:
-                    A = self.rng.next()
-                    last = fpow[day][current_available_units]
-                    if A > last:
+                if daily_fo_rate[day] > 0 and daily_fo_rate[day] <= FAILURE_RATE_EQ_1:
+                    draw = self.rng.next()
+                    last = fpow[day, current_available_units]
+                    if draw > last:
                         cumul = last
                         for d in range(1, current_available_units + 1):
                             last = (
@@ -196,23 +197,25 @@ class ThermalDataGenerator:
                             )
                             cumul += last
                             fo_candidates = d
-                            if A <= cumul:
+                            if draw <= cumul:
                                 break
-                elif lf[day] > FAILURE_RATE_EQ_1:  # TODO: not same comparison as cpp ?
+                elif (
+                    daily_fo_rate[day] > FAILURE_RATE_EQ_1
+                ):  # TODO: not same comparison as cpp ?
                     fo_candidates = current_available_units
                 else:  # self.lf[day] == 0
                     fo_candidates = 0
 
-                if lp[day] > 0 and lp[day] <= FAILURE_RATE_EQ_1:
+                if daily_po_rate[day] > 0 and daily_po_rate[day] <= FAILURE_RATE_EQ_1:
                     apparent_available_units = current_available_units
                     if stock >= 0 and stock <= current_available_units:
                         apparent_available_units -= stock
                     elif stock > current_available_units:
                         apparent_available_units = 0
 
-                    A = self.rng.next()
+                    draw = self.rng.next()
                     last = ppow[day, apparent_available_units]
-                    if A > last:
+                    if draw > last:
                         cumul = last
                         for d in range(1, apparent_available_units + 1):
                             last = (
@@ -220,9 +223,9 @@ class ThermalDataGenerator:
                             )
                             cumul += last
                             po_candidates = d
-                            if A <= cumul:
+                            if draw <= cumul:
                                 break
-                elif lp[day] > FAILURE_RATE_EQ_1:
+                elif daily_po_rate[day] > FAILURE_RATE_EQ_1:
                     po_candidates = current_available_units
                 else:  # self.lf[day] == 0
                     po_candidates = 0
