@@ -48,6 +48,84 @@ class ThermalCluster:
     po_law: ProbabilityLaw
     po_volatility: float
 
+    def __post_init__(self) -> None:
+        _check_cluster(self)
+
+
+def _check_1_dim(array: npt.NDArray, name: str) -> None:
+    if array.ndim != 1:
+        raise ValueError(f"{name} must be a 1 dimension array.")
+
+
+def _check_array(condition: npt.NDArray[np.bool_], message: str) -> None:
+    if condition.any():
+        raise ValueError(f"{message}: {condition.nonzero()[0].tolist()}")
+
+
+def _check_cluster(cluster: ThermalCluster) -> None:
+    if cluster.unit_count <= 0:
+        raise ValueError(
+            f"Unit count must be strictly positive, got {cluster.unit_count}."
+        )
+    if cluster.nominal_power <= 0:
+        raise ValueError(
+            f"Nominal power must be strictly positive, got {cluster.nominal_power}."
+        )
+    if cluster.fo_volatility < 0:
+        raise ValueError(
+            f"Forced outage volatility must be positive, got {cluster.unit_count}."
+        )
+    if cluster.po_volatility < 0:
+        raise ValueError(
+            f"Planned outage volatility must be positive, got {cluster.unit_count}."
+        )
+
+    _check_1_dim(cluster.fo_rate, "Forced outage failure rate")
+    _check_1_dim(cluster.fo_duration, "Forced outage duration")
+    _check_1_dim(cluster.po_rate, "Planned failure rate")
+    _check_1_dim(cluster.po_duration, "Planned outage duration")
+    _check_1_dim(cluster.npo_min, "Minimum count of planned outages")
+    _check_1_dim(cluster.npo_max, "Maximum count of planned outages")
+    _check_1_dim(cluster.modulation, "Hourly modulation")
+    if len(cluster.modulation) != 24:
+        raise ValueError("hourly modulation array must have 24 values.")
+
+    _check_array(
+        cluster.fo_rate < 0, "Forced failure rate is negative on following days"
+    )
+    _check_array(
+        cluster.fo_rate > 1, "Forced failure rate is greater than 1 on following days"
+    )
+    _check_array(
+        cluster.fo_duration < 0, "Forced outage duration is negative on following days"
+    )
+    _check_array(
+        cluster.po_rate < 0, "Planned failure rate is negative on following days"
+    )
+    _check_array(
+        cluster.po_rate > 1, "Planned failure rate is greater than 1 on following days"
+    )
+    _check_array(
+        cluster.po_duration < 0, "Planned outage duration is negative on following days"
+    )
+    _check_array(
+        cluster.modulation < 0, "Hourly modulation is negative on following hours"
+    )
+
+    lengths = {
+        len(a)
+        for a in [
+            cluster.fo_rate,
+            cluster.fo_duration,
+            cluster.po_rate,
+            cluster.po_duration,
+            cluster.npo_min,
+            cluster.npo_max,
+        ]
+    }
+    if len(lengths) != 1:
+        raise ValueError(f"Not all daily arrays have same size, got {lengths}")
+
 
 class OutputTimeseries:
     def __init__(self, ts_count: int, days: int) -> None:
@@ -96,6 +174,7 @@ class ThermalDataGenerator:
         """
         generation of multiple timeseries for a given thermal cluster
         """
+        _check_cluster(cluster)
 
         # TODO: Remove this log size limit, seems useless and error prone if very large durations
         log_size = 4000  # >= 5 * (max(df) + max(dp))

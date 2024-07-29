@@ -9,6 +9,7 @@
 # SPDX-License-Identifier: MPL-2.0
 #
 # This file is part of the Antares project.
+from typing import Any
 
 import numpy as np
 import numpy.testing as npt
@@ -18,6 +19,7 @@ from antares.tsgen.ts_generator import (
     ProbabilityLaw,
     ThermalCluster,
     ThermalDataGenerator,
+    _check_cluster,
     _column_powers,
     _daily_to_hourly,
 )
@@ -64,7 +66,8 @@ def test_invalid_fo_rates(rng, base_cluster_365_days):
     cluster.fo_rate[10] = -0.1
 
     with pytest.raises(
-        ValueError, match="forced failure rate is negative on days \[10, 12\]"
+        ValueError,
+        match="Forced failure rate is negative on following days: \[10, 12\]",
     ):
         generator = ThermalDataGenerator(rng=rng, days=days)
         generator.generate_time_series(cluster, 1)
@@ -77,10 +80,70 @@ def test_invalid_po_rates(rng, base_cluster_365_days):
     cluster.po_rate[10] = -0.1
 
     with pytest.raises(
-        ValueError, match="planned failure rate is negative on days \[10, 12\]"
+        ValueError,
+        match="Planned failure rate is negative on following days: \[10, 12\]",
     ):
         generator = ThermalDataGenerator(rng=rng, days=days)
         generator.generate_time_series(cluster, 1)
+
+
+def valid_cluster() -> ThermalCluster:
+    days = 365
+    return ThermalCluster(
+        unit_count=10,
+        nominal_power=100,
+        modulation=np.ones(dtype=float, shape=24),
+        fo_law=ProbabilityLaw.UNIFORM,
+        fo_volatility=0,
+        po_law=ProbabilityLaw.UNIFORM,
+        po_volatility=0,
+        fo_duration=10 * np.ones(dtype=int, shape=days),
+        fo_rate=0.2 * np.ones(dtype=float, shape=days),
+        po_duration=10 * np.ones(dtype=int, shape=days),
+        po_rate=np.zeros(dtype=float, shape=days),
+        npo_min=np.zeros(dtype=int, shape=days),
+        npo_max=10 * np.ones(dtype=int, shape=days),
+    )
+
+
+def test_invalid_cluster():
+    cluster = valid_cluster()
+    _check_cluster(cluster)
+
+    cluster = valid_cluster()
+    with pytest.raises(ValueError):
+        cluster.nominal_power = -1
+        _check_cluster(cluster)
+
+    cluster = valid_cluster()
+    with pytest.raises(ValueError):
+        cluster.unit_count = -1
+        _check_cluster(cluster)
+
+    cluster = valid_cluster()
+    with pytest.raises(ValueError):
+        cluster.fo_duration[10] = -1
+        _check_cluster(cluster)
+
+    cluster = valid_cluster()
+    with pytest.raises(ValueError):
+        cluster.po_duration[10] = -1
+        _check_cluster(cluster)
+
+    cluster = valid_cluster()
+    with pytest.raises(ValueError):
+        cluster.modulation[10] = -1
+        _check_cluster(cluster)
+
+    cluster = valid_cluster()
+    with pytest.raises(ValueError):
+        cluster.modulation = np.ones(30)
+        _check_cluster(cluster)
+
+    cluster = valid_cluster()
+    with pytest.raises(ValueError):
+        cluster.fo_rate = cluster.fo_rate[:-2]
+        _check_cluster(cluster)
 
 
 def test_forced_outages(rng):
