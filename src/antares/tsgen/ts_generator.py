@@ -328,9 +328,10 @@ class ThermalDataGenerator:
 
                 now = (now + 1) % log_size
 
+        hourly_available_units = np.repeat(output.available_units, 24, axis=1)
+        hourly_modulation = np.tile(cluster.modulation, self.days)
         output.available_power = (
-            np.repeat(output.available_units, 24, axis=1)
-            * cluster.nominal_power
-            * np.tile(cluster.modulation, self.days)
+            hourly_available_units * cluster.nominal_power * hourly_modulation
         )
+
         return output
