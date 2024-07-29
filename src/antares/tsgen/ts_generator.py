@@ -181,6 +181,61 @@ def _categorize_outages(
     return mixed, pure_planned, pure_forced
 
 
+class ForcedOutagesDrawer:
+    def __init__(self, rng: RNG, unit_count: int, failure_rate: npt.NDArray[np.float_]):
+        days = len(failure_rate)
+        self.rng = rng
+        self.failure_rate = failure_rate
+        self.ff = np.zeros(days, dtype=float)  # ff = lf / (1 - lf)
+        a = np.zeros(shape=days, dtype=float)
+        mask = failure_rate <= FAILURE_RATE_EQ_1
+        a[mask] = 1 - failure_rate[mask]
+        self.ff[mask] = failure_rate[mask] / a
+        self.fpow = _column_powers(a, unit_count + 1)
+
+    def draw(self, available_units: int, day: int) -> int:
+        fo_candidates = 0
+        rate = self.failure_rate[day]
+        if rate > 0 and rate <= FAILURE_RATE_EQ_1:
+            draw = self.rng.next()
+            last = self.fpow[day, available_units]
+            if draw > last:
+                cumul = last
+                for d in range(1, available_units + 1):
+                    last = last * self.ff[day] * (available_units + 1 - d) / d
+                    cumul += last
+                    fo_candidates = d
+                    if draw <= cumul:
+                        break
+        elif rate > FAILURE_RATE_EQ_1:  # TODO: not same comparison as cpp ?
+            fo_candidates = available_units
+        else:  # self.lf[day] == 0
+            fo_candidates = 0
+        return fo_candidates
+
+
+def _compute_failure_rates(
+    outage_rates: npt.NDArray[np.float_], durations: npt.NDArray[np.int_]
+) -> npt.NDArray[np.float_]:
+    """
+    Daily failure rates (= chance that an outage occurs on a given day), computed
+    from outage rates (= share of a period during which a unit is in outage),
+    and outage duration expectations.
+    """
+    return outage_rates / (outage_rates + durations * (1 - outage_rates))
+
+
+def _combine_failure_rates(
+    rates1: npt.NDArray[np.float_], rates2: npt.NDArray[np.float_]
+) -> None:
+    ## i dont understand what these calulations are for
+    ## consequently reduce the lower failure rate
+    mask = rates1 < rates2
+    rates1[mask] *= (1 - rates2[mask]) / (1 - rates1[mask])
+    mask = rates2 < rates1
+    rates2[mask] *= (1 - rates1[mask]) / (1 - rates2[mask])
+
+
 class ThermalDataGenerator:
     def __init__(self, rng: RNG = MersenneTwisterRNG(), days: int = 365) -> None:
         self.rng = rng
@@ -204,37 +259,24 @@ class ThermalDataGenerator:
         logp = np.zeros(log_size, dtype=int)
 
         ## ???
-        ff = np.zeros(self.days, dtype=float)  # ff = lf / (1 - lf)
         pp = np.zeros(self.days, dtype=float)  # pp = lp / (1 - lp)
 
         # lf and lp represent the forced and programed failure rate
         # failure rate means the probability to enter in outage each day
         # its value is given by: OR / [OR + OD * (1 - OR)]
-        daily_fo_rate = cluster.fo_rate / (
-            cluster.fo_rate + cluster.fo_duration * (1 - cluster.fo_rate)
-        )
-        daily_po_rate = cluster.po_rate / (
-            cluster.po_rate + cluster.po_duration * (1 - cluster.po_rate)
-        )
+        daily_fo_rate = _compute_failure_rates(cluster.fo_rate, cluster.fo_duration)
+        daily_po_rate = _compute_failure_rates(cluster.po_rate, cluster.po_duration)
+        _combine_failure_rates(daily_fo_rate, daily_po_rate)
 
-        ## i dont understand what these calulations are for
-        ## consequently reduce the lower failure rate
-        mask = daily_fo_rate < daily_po_rate
-        daily_fo_rate[mask] *= (1 - daily_po_rate[mask]) / (1 - daily_fo_rate[mask])
-        mask = daily_po_rate < daily_fo_rate
-        daily_po_rate[mask] *= (1 - daily_fo_rate[mask]) / (1 - daily_po_rate[mask])
-
-        a = np.zeros(shape=self.days, dtype=float)
+        fo_drawer = ForcedOutagesDrawer(
+            rng=self.rng, unit_count=cluster.unit_count, failure_rate=daily_fo_rate
+        )
         b = np.zeros(shape=self.days, dtype=float)
-        mask = daily_fo_rate <= FAILURE_RATE_EQ_1
-        a[mask] = 1 - daily_fo_rate[mask]
-        ff[mask] = daily_fo_rate[mask] / a
 
         mask = daily_po_rate <= FAILURE_RATE_EQ_1
         b[mask] = 1 - daily_po_rate[mask]
         pp[mask] = daily_po_rate[mask] / b
 
-        fpow = _column_powers(a, cluster.unit_count + 1)
         ppow = _column_powers(b, cluster.unit_count + 1)
 
         fod_generator = make_duration_generator(
@@ -271,28 +313,8 @@ class ThermalDataGenerator:
                 current_available_units += log[now]
                 log[now] = 0
 
-                fo_candidates = 0
+                fo_candidates = fo_drawer.draw(current_available_units, day)
                 po_candidates = 0
-
-                if daily_fo_rate[day] > 0 and daily_fo_rate[day] <= FAILURE_RATE_EQ_1:
-                    draw = self.rng.next()
-                    last = fpow[day, current_available_units]
-                    if draw > last:
-                        cumul = last
-                        for d in range(1, current_available_units + 1):
-                            last = (
-                                last * ff[day] * (current_available_units + 1 - d) / d
-                            )
-                            cumul += last
-                            fo_candidates = d
-                            if draw <= cumul:
-                                break
-                elif (
-                    daily_fo_rate[day] > FAILURE_RATE_EQ_1
-                ):  # TODO: not same comparison as cpp ?
-                    fo_candidates = current_available_units
-                else:  # self.lf[day] == 0
-                    fo_candidates = 0
 
                 if daily_po_rate[day] > 0 and daily_po_rate[day] <= FAILURE_RATE_EQ_1:
                     apparent_available_units = current_available_units
