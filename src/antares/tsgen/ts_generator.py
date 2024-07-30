@@ -11,7 +11,7 @@
 # This file is part of the Antares project.
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -23,6 +23,10 @@ from antares.tsgen.random_generator import RNG, MersenneTwisterRNG
 FAILURE_RATE_EQ_1 = 0.999
 
 
+IntArray = npt.NDArray[np.int_]
+FloatArray = npt.NDArray[np.float_]
+
+
 @dataclass
 class ThermalCluster:
     # available units of the cluster
@@ -30,16 +34,16 @@ class ThermalCluster:
     # nominal power
     nominal_power: float
     # modulation of the nominal power for a certain hour in the day (between 0 and 1)
-    modulation: npt.NDArray[np.int_]
+    modulation: IntArray
 
     # forced and planed outage parameters
     # indexed by day of the year
-    fo_duration: npt.NDArray[np.int_]
-    fo_rate: npt.NDArray[np.float_]
-    po_duration: npt.NDArray[np.int_]
-    po_rate: npt.NDArray[np.float_]
-    npo_min: npt.NDArray[np.int_]  # number of planed outage min in a day
-    npo_max: npt.NDArray[np.int_]  # number of planed outage max in a day
+    fo_duration: IntArray
+    fo_rate: FloatArray
+    po_duration: IntArray
+    po_rate: FloatArray
+    npo_min: IntArray  # number of planed outage min in a day
+    npo_max: IntArray  # number of planed outage max in a day
 
     # forced and planed outage probability law and volatility
     # volatility characterizes the distance from the expect at which the value drawn can be
@@ -142,7 +146,7 @@ class OutputTimeseries:
         self.forced_outage_durations = np.zeros((ts_count, days), dtype=int)
 
 
-def _column_powers(column: npt.NDArray[np.float_], width: int) -> npt.NDArray:
+def _column_powers(column: FloatArray, width: int) -> npt.NDArray:
     """
     Returns a matrix of given width where column[i] is the ith power of the input vector.
     """
@@ -159,6 +163,77 @@ def _daily_to_hourly(daily_data: npt.NDArray) -> npt.NDArray:
     if daily_data.ndim != 2:
         raise ValueError("Daily data must be a 2D-array")
     return np.repeat(daily_data, 24, axis=1)
+
+
+def _categorize_outages(
+    available_units: int, po_candidates: int, fo_candidates: int
+) -> Tuple[int, int, int]:
+    if po_candidates > available_units:
+        raise ValueError(
+            "Planned outages candidate cannot be greater than available units."
+        )
+    if fo_candidates > available_units:
+        raise ValueError(
+            "Forced outages candidate cannot be greater than available units."
+        )
+
+    if available_units == 0:
+        return 0, 0, 0
+    mixed = po_candidates * fo_candidates // available_units
+    pure_planned = po_candidates - mixed
+    pure_forced = fo_candidates - mixed
+    return mixed, pure_planned, pure_forced
+
+
+class ForcedOutagesDrawer:
+    def __init__(self, rng: RNG, unit_count: int, failure_rate: FloatArray):
+        days = len(failure_rate)
+        self.rng = rng
+        self.failure_rate = failure_rate
+        self.ff = np.zeros(days, dtype=float)  # ff = lf / (1 - lf)
+        a = np.zeros(shape=days, dtype=float)
+        mask = failure_rate <= FAILURE_RATE_EQ_1
+        a[mask] = 1 - failure_rate[mask]
+        self.ff[mask] = failure_rate[mask] / a
+        self.fpow = _column_powers(a, unit_count + 1)
+
+    def draw(self, available_units: int, day: int) -> int:
+        fo_candidates = 0
+        rate = self.failure_rate[day]
+        if rate > 0 and rate <= FAILURE_RATE_EQ_1:
+            draw = self.rng.next()
+            last = self.fpow[day, available_units]
+            if draw > last:
+                cumul = last
+                for d in range(1, available_units + 1):
+                    last = last * self.ff[day] * (available_units + 1 - d) / d
+                    cumul += last
+                    fo_candidates = d
+                    if draw <= cumul:
+                        break
+        elif rate > FAILURE_RATE_EQ_1:  # TODO: not same comparison as cpp ?
+            fo_candidates = available_units
+        else:  # self.lf[day] == 0
+            fo_candidates = 0
+        return fo_candidates
+
+
+def _compute_failure_rates(outage_rates: FloatArray, durations: IntArray) -> FloatArray:
+    """
+    Daily failure rates (= chance that an outage occurs on a given day), computed
+    from outage rates (= share of a period during which a unit is in outage),
+    and outage duration expectations.
+    """
+    return outage_rates / (outage_rates + durations * (1 - outage_rates))
+
+
+def _combine_failure_rates(rates1: FloatArray, rates2: FloatArray) -> None:
+    ## i dont understand what these calulations are for
+    ## consequently reduce the lower failure rate
+    mask = rates1 < rates2
+    rates1[mask] *= (1 - rates2[mask]) / (1 - rates1[mask])
+    mask = rates2 < rates1
+    rates2[mask] *= (1 - rates1[mask]) / (1 - rates2[mask])
 
 
 class ThermalDataGenerator:
@@ -183,58 +258,25 @@ class ThermalDataGenerator:
         # same but only for PO; necessary to ensure maximum and minimum PO is respected
         logp = np.zeros(log_size, dtype=int)
 
-        # pogramed and forced outage rate
-        daily_fo_rate = np.zeros(self.days, dtype=float)
-        daily_po_rate = np.zeros(self.days, dtype=float)
-
         ## ???
-        ff = np.zeros(self.days, dtype=float)  # ff = lf / (1 - lf)
         pp = np.zeros(self.days, dtype=float)  # pp = lp / (1 - lp)
-
-        # --- precalculation ---
-        # cached values for (1-lf)**k and (1-lp)**k
-        fpow = np.zeros(shape=(self.days, cluster.unit_count + 1))
-        ppow = np.zeros(shape=(self.days, cluster.unit_count + 1))
 
         # lf and lp represent the forced and programed failure rate
         # failure rate means the probability to enter in outage each day
         # its value is given by: OR / [OR + OD * (1 - OR)]
-        daily_fo_rate = cluster.fo_rate / (
-            cluster.fo_rate + cluster.fo_duration * (1 - cluster.fo_rate)
+        daily_fo_rate = _compute_failure_rates(cluster.fo_rate, cluster.fo_duration)
+        daily_po_rate = _compute_failure_rates(cluster.po_rate, cluster.po_duration)
+        _combine_failure_rates(daily_fo_rate, daily_po_rate)
+
+        fo_drawer = ForcedOutagesDrawer(
+            rng=self.rng, unit_count=cluster.unit_count, failure_rate=daily_fo_rate
         )
-        daily_po_rate = cluster.po_rate / (
-            cluster.po_rate + cluster.po_duration * (1 - cluster.po_rate)
-        )
-
-        invalid_days = daily_fo_rate < 0
-        if invalid_days.any():
-            raise ValueError(
-                f"forced failure rate is negative on days {invalid_days.nonzero()[0].tolist()}"
-            )
-        invalid_days = daily_po_rate < 0
-        if invalid_days.any():
-            raise ValueError(
-                f"planned failure rate is negative on days {invalid_days.nonzero()[0].tolist()}"
-            )
-
-        ## i dont understand what these calulations are for
-        ## consequently reduce the lower failure rate
-        mask = daily_fo_rate < daily_po_rate
-        daily_fo_rate[mask] *= (1 - daily_po_rate[mask]) / (1 - daily_fo_rate[mask])
-        mask = daily_po_rate < daily_fo_rate
-        daily_po_rate[mask] *= (1 - daily_fo_rate[mask]) / (1 - daily_po_rate[mask])
-
-        a = np.zeros(shape=self.days, dtype=float)
         b = np.zeros(shape=self.days, dtype=float)
-        mask = daily_fo_rate <= FAILURE_RATE_EQ_1
-        a[mask] = 1 - daily_fo_rate[mask]
-        ff[mask] = daily_fo_rate[mask] / a
 
         mask = daily_po_rate <= FAILURE_RATE_EQ_1
         b[mask] = 1 - daily_po_rate[mask]
         pp[mask] = daily_po_rate[mask] / b
 
-        fpow = _column_powers(a, cluster.unit_count + 1)
         ppow = _column_powers(b, cluster.unit_count + 1)
 
         fod_generator = make_duration_generator(
@@ -271,28 +313,8 @@ class ThermalDataGenerator:
                 current_available_units += log[now]
                 log[now] = 0
 
-                fo_candidates = 0
+                fo_candidates = fo_drawer.draw(current_available_units, day)
                 po_candidates = 0
-
-                if daily_fo_rate[day] > 0 and daily_fo_rate[day] <= FAILURE_RATE_EQ_1:
-                    draw = self.rng.next()
-                    last = fpow[day, current_available_units]
-                    if draw > last:
-                        cumul = last
-                        for d in range(1, current_available_units + 1):
-                            last = (
-                                last * ff[day] * (current_available_units + 1 - d) / d
-                            )
-                            cumul += last
-                            fo_candidates = d
-                            if draw <= cumul:
-                                break
-                elif (
-                    daily_fo_rate[day] > FAILURE_RATE_EQ_1
-                ):  # TODO: not same comparison as cpp ?
-                    fo_candidates = current_available_units
-                else:  # self.lf[day] == 0
-                    fo_candidates = 0
 
                 if daily_po_rate[day] > 0 and daily_po_rate[day] <= FAILURE_RATE_EQ_1:
                     apparent_available_units = current_available_units
@@ -355,51 +377,31 @@ class ThermalDataGenerator:
 
                 # = distributing outage in category =
                 # pure planed, pure forced, mixed
-                mixed_outages = 0
-                pure_forced_outages = 0
-                pure_planned_outages = 0
-                if cluster.unit_count == 1:
-                    if po_candidates == 1 and fo_candidates == 1:
-                        mixed_outages = 1
-                        pure_planned_outages = 0
-                        pure_forced_outages = 0
-                    else:
-                        mixed_outages = 0
-                        pure_planned_outages = int(po_candidates)
-                        pure_forced_outages = int(fo_candidates)
-                else:
-                    if current_available_units != 0:
-                        mixed_outages = int(
-                            po_candidates * fo_candidates // current_available_units
-                        )
-                        pure_planned_outages = int(po_candidates - mixed_outages)
-                        pure_forced_outages = int(fo_candidates - mixed_outages)
-                    else:
-                        mixed_outages = 0
-                        pure_planned_outages = 0
-                        pure_forced_outages = 0
+                mixed_outages, planned_outages, forced_outages = _categorize_outages(
+                    current_available_units, po_candidates, fo_candidates
+                )
 
                 # = units stopping =
                 current_available_units -= (
-                    pure_planned_outages + pure_forced_outages + mixed_outages
+                    planned_outages + forced_outages + mixed_outages
                 )
 
                 # = generating outage duration = (from the law)
                 po_duration = 0
                 fo_duration = 0
 
-                if pure_planned_outages != 0 or mixed_outages != 0:
+                if planned_outages != 0 or mixed_outages != 0:
                     po_duration = pod_generator.generate_duration(day)
-                if pure_forced_outages != 0 or mixed_outages != 0:
+                if forced_outages != 0 or mixed_outages != 0:
                     fo_duration = fod_generator.generate_duration(day)
 
-                if pure_planned_outages != 0:
+                if planned_outages != 0:
                     return_timestep = (now + po_duration) % log_size
-                    log[return_timestep] += pure_planned_outages
-                    logp[return_timestep] += pure_planned_outages
-                if pure_forced_outages != 0:
+                    log[return_timestep] += planned_outages
+                    logp[return_timestep] += planned_outages
+                if forced_outages != 0:
                     return_timestep = (now + fo_duration) % log_size
-                    log[return_timestep] += pure_forced_outages
+                    log[return_timestep] += forced_outages
                 if mixed_outages != 0:
                     return_timestep = (now + po_duration + fo_duration) % log_size
                     log[return_timestep] += mixed_outages
@@ -407,8 +409,8 @@ class ThermalDataGenerator:
 
                 # = storing output in output arrays =
                 if ts_index >= 0:  # drop the 2 first generated timeseries
-                    output.planned_outages[ts_index, day] = pure_planned_outages
-                    output.forced_outages[ts_index, day] = pure_forced_outages
+                    output.planned_outages[ts_index, day] = planned_outages
+                    output.forced_outages[ts_index, day] = forced_outages
                     output.mixed_outages[ts_index, day] = mixed_outages
                     output.planned_outage_durations[ts_index, day] = po_duration
                     output.forced_outage_durations[ts_index, day] = fo_duration

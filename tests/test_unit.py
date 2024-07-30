@@ -19,6 +19,7 @@ from antares.tsgen.ts_generator import (
     ProbabilityLaw,
     ThermalCluster,
     ThermalDataGenerator,
+    _categorize_outages,
     _check_cluster,
     _column_powers,
     _daily_to_hourly,
@@ -144,6 +145,23 @@ def test_invalid_cluster():
     with pytest.raises(ValueError):
         cluster.fo_rate = cluster.fo_rate[:-2]
         _check_cluster(cluster)
+
+
+@pytest.mark.parametrize(
+    "available_units,po_candidates,fo_candidates,expected",
+    [
+        (0, 0, 0, (0, 0, 0)),
+        (1, 1, 1, (1, 0, 0)),
+        (1, 1, 0, (0, 1, 0)),
+        (1, 0, 1, (0, 0, 1)),
+        (10, 1, 1, (0, 1, 1)),
+        (10, 5, 5, (2, 3, 3)),
+        (10, 8, 3, (2, 6, 1)),
+    ],
+)
+def test_distribute_outages(available_units, po_candidates, fo_candidates, expected):
+    outages = _categorize_outages(available_units, po_candidates, fo_candidates)
+    assert outages == expected
 
 
 def test_forced_outages(rng):
