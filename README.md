@@ -1,6 +1,7 @@
 # antares-timeseries-generation
 
-Timeseries generation library for Antares simulator.
+Timeseries generation library aiming at creating input data
+for Antares simulator studies.
 
 ## Install
 
