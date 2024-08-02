@@ -34,10 +34,10 @@ cluster = ThermalCluster(
 )
 ```
 
-You then need to provide a random number generator: we provide `MersernneTwisterRNG` 
+You then need to provide a random number generator: we provide `MersenneTwisterRNG` 
 to ensure the same generation as in `antares-solver` tool.
 ```python
-rng = MersernneTwisterRNG()
+rng = MersenneTwisterRNG()
 ```
 
 Then perform the timeseries generation:
