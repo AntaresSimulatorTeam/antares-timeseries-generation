@@ -5,11 +5,8 @@ for Antares simulator studies.
 
 ## Install
 
-The library is not yet released on PyPI, for now you may install it 
-in your dev environment from sources:
 ```bash
-git clone https://github.com/AntaresSimulatorTeam/antares-timeseries-generation
-pip install .
+pip install antares-timeseries-generation
 ```
 
 ## Usage

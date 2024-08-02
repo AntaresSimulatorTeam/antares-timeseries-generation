@@ -1,6 +1,6 @@
 [project]
 name = "antares-timeseries-generation"
-version = "0.0.1"
+version = "0.1.0"
 license = {text="MPL-2.0"}
 dependencies = [ "numpy", "pandas", "PyYAML" ]
 classifiers = [
