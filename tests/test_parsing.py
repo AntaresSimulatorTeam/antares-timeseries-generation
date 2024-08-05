@@ -26,7 +26,7 @@ def cluster() -> ThermalCluster:
     return ThermalCluster(
         unit_count=1,
         nominal_power=500,
-        modulation=np.ones(dtype=float, shape=24),
+        modulation=np.ones(dtype=float, shape=8760),
         fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
         po_law=ProbabilityLaw.UNIFORM,

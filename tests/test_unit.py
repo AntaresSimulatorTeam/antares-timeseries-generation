@@ -45,7 +45,7 @@ def base_cluster_365_days():
     return ThermalCluster(
         unit_count=10,
         nominal_power=100,
-        modulation=np.ones(dtype=float, shape=24),
+        modulation=np.ones(dtype=float, shape=8760),
         fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
         po_law=ProbabilityLaw.UNIFORM,
@@ -92,7 +92,7 @@ def valid_cluster() -> ThermalCluster:
     return ThermalCluster(
         unit_count=10,
         nominal_power=100,
-        modulation=np.ones(dtype=float, shape=24),
+        modulation=np.ones(dtype=float, shape=8760),
         fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
         po_law=ProbabilityLaw.UNIFORM,
@@ -168,7 +168,7 @@ def test_forced_outages(rng):
     cluster = ThermalCluster(
         unit_count=10,
         nominal_power=100,
-        modulation=np.ones(dtype=float, shape=24),
+        modulation=np.ones(dtype=float, shape=8760),
         fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
         po_law=ProbabilityLaw.UNIFORM,
@@ -203,7 +203,7 @@ def test_planned_outages(rng):
     cluster = ThermalCluster(
         unit_count=10,
         nominal_power=100,
-        modulation=np.ones(dtype=float, shape=24),
+        modulation=np.ones(dtype=float, shape=8760),
         fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
         po_law=ProbabilityLaw.UNIFORM,
@@ -237,7 +237,7 @@ def test_planned_outages_limitation(rng):
     cluster = ThermalCluster(
         unit_count=10,
         nominal_power=100,
-        modulation=np.ones(dtype=float, shape=24),
+        modulation=np.ones(dtype=float, shape=8760),
         fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
         po_law=ProbabilityLaw.UNIFORM,
@@ -270,7 +270,7 @@ def test_planned_outages_min_limitation(rng):
     cluster = ThermalCluster(
         unit_count=10,
         nominal_power=100,
-        modulation=np.ones(dtype=float, shape=24),
+        modulation=np.ones(dtype=float, shape=8760),
         fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
         po_law=ProbabilityLaw.UNIFORM,
