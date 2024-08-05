@@ -11,10 +11,10 @@
 # This file is part of the Antares project.
 
 from pathlib import Path
-from typing import Iterable, Optional, TextIO, Tuple
+from typing import Optional, TextIO, Tuple
 
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from yaml import safe_load
 
 

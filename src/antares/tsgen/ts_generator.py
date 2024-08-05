@@ -11,7 +11,7 @@
 # This file is part of the Antares project.
 
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -91,8 +91,8 @@ def _check_cluster(cluster: ThermalCluster) -> None:
     _check_1_dim(cluster.npo_min, "Minimum count of planned outages")
     _check_1_dim(cluster.npo_max, "Maximum count of planned outages")
     _check_1_dim(cluster.modulation, "Hourly modulation")
-    if len(cluster.modulation) != 24:
-        raise ValueError("hourly modulation array must have 24 values.")
+    if len(cluster.modulation) != 8760:
+        raise ValueError("hourly modulation array must have 8760 values.")
 
     _check_array(
         cluster.fo_rate < 0, "Forced failure rate is negative on following days"
@@ -419,9 +419,8 @@ class ThermalDataGenerator:
                 now = (now + 1) % log_size
 
         hourly_available_units = _daily_to_hourly(output.available_units)
-        hourly_modulation = np.tile(cluster.modulation, self.days)
         output.available_power = (
-            hourly_available_units * cluster.nominal_power * hourly_modulation
+            hourly_available_units * cluster.nominal_power * cluster.modulation
         )
 
         return output

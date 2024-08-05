@@ -11,7 +11,6 @@
 # This file is part of the Antares project.
 import random
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from .mersenne_twister import MersenneTwister
 

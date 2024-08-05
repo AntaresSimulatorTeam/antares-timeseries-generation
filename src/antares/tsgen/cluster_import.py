@@ -23,10 +23,11 @@ def import_thermal_cluster(path: Path, days_per_year: int = 365) -> ThermalClust
         "GEOMETRIC": ProbabilityLaw.GEOMETRIC,
     }
     array = np.genfromtxt(path, delimiter=",", dtype=str)
+    hourly_modulation = np.tile(array[3][1 : 24 + 1].astype(int), 365)
     return ThermalCluster(
         unit_count=int(array[1][1]),
         nominal_power=float(array[2][1]),
-        modulation=array[3][1 : 24 + 1].astype(int),
+        modulation=hourly_modulation,
         fo_law=law_dict[array[4][1]],
         fo_volatility=float(array[5][1]),
         po_law=law_dict[array[6][1]],
