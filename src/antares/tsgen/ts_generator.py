@@ -11,7 +11,7 @@
 # This file is part of the Antares project.
 
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -307,9 +307,9 @@ class ThermalDataGenerator:
             for day in range(self.days):
                 # = return of units wich were in outage =
                 current_planned_outages -= logp[now]
-                logp[
-                    now
-                ] = 0  # set to 0 because this cell will be use again later (in self.log_size days)
+                logp[now] = (
+                    0  # set to 0 because this cell will be use again later (in self.log_size days)
+                )
                 current_available_units += log[now]
                 log[now] = 0
 

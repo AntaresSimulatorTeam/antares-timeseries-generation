@@ -11,7 +11,6 @@
 # This file is part of the Antares project.
 import argparse
 from pathlib import Path
-from typing import List, Optional
 
 
 def main() -> None:
@@ -35,7 +34,7 @@ def main() -> None:
         "--scenario", type=int, help="number of scenario of the simulation", default=1
     )
 
-    args = parser.parse_args()
+    parser.parse_args()
 
 
 if __name__ == "__main__":
