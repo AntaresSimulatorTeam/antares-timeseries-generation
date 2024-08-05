@@ -307,9 +307,9 @@ class ThermalDataGenerator:
             for day in range(self.days):
                 # = return of units wich were in outage =
                 current_planned_outages -= logp[now]
-                logp[now] = (
-                    0  # set to 0 because this cell will be use again later (in self.log_size days)
-                )
+                logp[
+                    now
+                ] = 0  # set to 0 because this cell will be use again later (in self.log_size days)
                 current_available_units += log[now]
                 log[now] = 0
 
@@ -419,6 +419,8 @@ class ThermalDataGenerator:
                 now = (now + 1) % log_size
 
         hourly_available_units = _daily_to_hourly(output.available_units)
-        output.available_power = hourly_available_units * cluster.nominal_power * cluster.modulation
+        output.available_power = (
+            hourly_available_units * cluster.nominal_power * cluster.modulation
+        )
 
         return output
