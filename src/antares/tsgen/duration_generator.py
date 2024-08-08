@@ -99,7 +99,7 @@ class GeometricDurationGenerator(DurationGenerator):
         generation of random outage duration
         """
         rnd_nb = self.rng.next()
-        return min(int(1 + self.a[day] + self.b[day] * log(rnd_nb)), 1999)
+        return min(1 + int(self.a[day] + self.b[day] * log(rnd_nb)), 1999)
 
 
 def make_duration_generator(
