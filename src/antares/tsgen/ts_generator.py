@@ -211,11 +211,52 @@ class ForcedOutagesDrawer:
                     fo_candidates = d
                     if draw <= cumul:
                         break
-        elif rate > FAILURE_RATE_EQ_1:  # TODO: not same comparison as cpp ?
+        elif rate > 0:
             fo_candidates = available_units
-        else:  # self.lf[day] == 0
+        else:
             fo_candidates = 0
         return fo_candidates
+
+class PlannedOutagesDrawer:
+    def __init__(self, rng: RNG, unit_count: int, failure_rate: FloatArray):
+        days = len(failure_rate)
+        self.rng = rng
+        self.failure_rate = failure_rate
+        self.pp = np.zeros(days, dtype=float)  # pp = lp / (1 - lp)
+        a = np.zeros(shape=days, dtype=float)
+        mask = failure_rate <= FAILURE_RATE_EQ_1
+        a[mask] = 1 - failure_rate[mask]
+        self.pp[mask] = failure_rate[mask] / a
+        self.ppow = _column_powers(a, unit_count + 1)
+
+    def draw(self, available_units: int, day: int, stock: int) -> Tuple[int, int]:
+        po_candidates = 0
+        rate = self.failure_rate[day]
+
+        if rate > 0 and rate <= FAILURE_RATE_EQ_1:
+            apparent_available_units = available_units
+            if stock >= 0 and stock <= available_units:
+                apparent_available_units -= stock
+            elif stock > available_units:
+                apparent_available_units = 0
+
+            draw = self.rng.next()
+            last = self.ppow[day, apparent_available_units]
+            if draw > last:
+                cumul = last
+                for d in range(1, apparent_available_units + 1):
+                    last = (
+                            last * self.pp[day] * (apparent_available_units + 1 - d) / d
+                    )
+                    cumul += last
+                    po_candidates = d
+                    if draw <= cumul:
+                        break
+        elif rate > 0:
+            po_candidates = available_units
+        else:
+            po_candidates = 0
+        return po_candidates, stock
 
 
 def _compute_failure_rates(outage_rates: FloatArray, durations: IntArray) -> FloatArray:
@@ -258,9 +299,6 @@ class ThermalDataGenerator:
         # same but only for PO; necessary to ensure maximum and minimum PO is respected
         logp = np.zeros(log_size, dtype=int)
 
-        ## ???
-        pp = np.zeros(self.days, dtype=float)  # pp = lp / (1 - lp)
-
         # lf and lp represent the forced and programed failure rate
         # failure rate means the probability to enter in outage each day
         # its value is given by: OR / [OR + OD * (1 - OR)]
@@ -268,17 +306,8 @@ class ThermalDataGenerator:
         daily_po_rate = _compute_failure_rates(cluster.po_rate, cluster.po_duration)
         _combine_failure_rates(daily_fo_rate, daily_po_rate)
 
-        fo_drawer = ForcedOutagesDrawer(
-            rng=self.rng, unit_count=cluster.unit_count, failure_rate=daily_fo_rate
-        )
-        b = np.zeros(shape=self.days, dtype=float)
-
-        mask = daily_po_rate <= FAILURE_RATE_EQ_1
-        b[mask] = 1 - daily_po_rate[mask]
-        pp[mask] = daily_po_rate[mask] / b
-
-        ppow = _column_powers(b, cluster.unit_count + 1)
-
+        fo_drawer = ForcedOutagesDrawer(self.rng, cluster.unit_count, daily_fo_rate)
+        po_drawer = PlannedOutagesDrawer(self.rng, cluster.unit_count, daily_po_rate)
         fod_generator = make_duration_generator(
             self.rng, cluster.fo_law, cluster.fo_volatility, cluster.fo_duration
         )
@@ -313,32 +342,26 @@ class ThermalDataGenerator:
                 current_available_units += log[now]
                 log[now] = 0
 
+                if current_planned_outages > cluster.npo_max[day]:
+                    cible_retour = current_planned_outages - cluster.npo_max[day]
+                    cumul_retour = 0
+                    for index in range(1, log_size):
+                        if cumul_retour == cible_retour:
+                            break
+                        if logp[(now+index) % log_size] + cumul_retour >= cible_retour:
+                            logp[(now + index) % log_size] -= (cible_retour - cumul_retour)
+                            log[(now + index) % log_size] -= (cible_retour - cumul_retour)
+                            cumul_retour = cible_retour
+                        else:
+                            if logp[(now+index) % log_size] > 0:
+                                cumul_retour += logp[(now + index) % log_size]
+                                log[(now + index) % log_size] -= logp[(now + index) % log_size]
+                                logp[(now + index) % log_size] = 0
+                    current_available_units += cible_retour
+                    current_planned_outages = cluster.npo_max[day]
+
                 fo_candidates = fo_drawer.draw(current_available_units, day)
-                po_candidates = 0
-
-                if daily_po_rate[day] > 0 and daily_po_rate[day] <= FAILURE_RATE_EQ_1:
-                    apparent_available_units = current_available_units
-                    if stock >= 0 and stock <= current_available_units:
-                        apparent_available_units -= stock
-                    elif stock > current_available_units:
-                        apparent_available_units = 0
-
-                    draw = self.rng.next()
-                    last = ppow[day, apparent_available_units]
-                    if draw > last:
-                        cumul = last
-                        for d in range(1, apparent_available_units + 1):
-                            last = (
-                                last * pp[day] * (apparent_available_units + 1 - d) / d
-                            )
-                            cumul += last
-                            po_candidates = d
-                            if draw <= cumul:
-                                break
-                elif daily_po_rate[day] > FAILURE_RATE_EQ_1:
-                    po_candidates = current_available_units
-                else:  # self.lf[day] == 0
-                    po_candidates = 0
+                po_candidates, stock = po_drawer.draw(current_available_units, day, stock)
 
                 # apparent PO is compared to cur_nb_AU, considering stock
                 candidate = po_candidates + stock
@@ -356,8 +379,9 @@ class ThermalDataGenerator:
                 if po_candidates + current_planned_outages > cluster.npo_max[day]:
                     # too many PO to place
                     # the excedent is placed in stock
+                    stock += po_candidates + current_planned_outages - cluster.npo_max[day]
                     po_candidates = cluster.npo_max[day] - current_planned_outages
-                    current_planned_outages += po_candidates
+                    current_planned_outages = cluster.npo_max[day]
                 elif po_candidates + current_planned_outages < cluster.npo_min[day]:
                     if (
                         cluster.npo_min[day] - current_planned_outages
@@ -371,7 +395,7 @@ class ThermalDataGenerator:
                             po_candidates + current_planned_outages
                         )
                         po_candidates = cluster.npo_min[day] - current_planned_outages
-                        current_planned_outages += po_candidates
+                        current_planned_outages = cluster.npo_min[day]
                 else:
                     current_planned_outages += po_candidates
 

@@ -95,8 +95,8 @@ class GeometricDurationGenerator(DurationGenerator):
                 self.a[day] = expec - 1 / ytemp
                 self.b[day] = 1 / log(1 - ytemp)
             else:
-                self.a[day] = expec - 1
-                self.b[day] = 0
+                self.a[day] = 1
+                self.b[day] = 1
 
     def generate_duration(self, day: int) -> int:
         """
