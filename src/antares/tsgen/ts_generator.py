@@ -308,12 +308,8 @@ class ThermalDataGenerator:
 
         fo_drawer = ForcedOutagesDrawer(self.rng, cluster.unit_count, daily_fo_rate)
         po_drawer = PlannedOutagesDrawer(self.rng, cluster.unit_count, daily_po_rate)
-        fod_generator = make_duration_generator(
-            self.rng, cluster.fo_law, cluster.fo_volatility, cluster.fo_duration
-        )
-        pod_generator = make_duration_generator(
-            self.rng, cluster.po_law, cluster.po_volatility, cluster.po_duration
-        )
+        fod_generator = make_duration_generator(self.rng, cluster.fo_law, cluster.fo_volatility, cluster.fo_duration)
+        pod_generator = make_duration_generator(self.rng, cluster.po_law, cluster.po_volatility, cluster.po_duration)
 
         # --- calculation ---
         # the two first generated time series will be dropped, necessary to make system stable and physically coherent
