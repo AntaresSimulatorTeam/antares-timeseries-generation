@@ -10,3 +10,13 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
 ]
+
+[tool.black]
+target-version = ["py38"]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+line_length = 120
+src_paths = ["src", "tests"]
+skip_gitignore = true

@@ -51,17 +51,10 @@ def test_one_unit_cluster(cluster_1, output_directory):
         writer = csv.writer(file, delimiter=",", quotechar='"')
 
         writer.writerow(["timeseries :"])
-        writer.writerows(
-            [
-                [line[i] for i in range(0, len(line), 24)]
-                for line in results.available_power
-            ]
-        )
+        writer.writerows([[line[i] for i in range(0, len(line), 24)] for line in results.available_power])
 
         writer.writerow(["total PO :", tot_po, "total FO :", tot_fo])
-        writer.writerow(
-            ["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)]
-        )
+        writer.writerow(["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)])
 
 
 def test_hundred_unit_cluster(cluster_100, output_directory):
@@ -104,17 +97,10 @@ def test_hundred_unit_cluster(cluster_100, output_directory):
         writer = csv.writer(file, delimiter=",", quotechar='"')
 
         writer.writerow(["timeseries :"])
-        writer.writerows(
-            [
-                [line[i] for i in range(0, len(line), 24)]
-                for line in results.available_power
-            ]
-        )
+        writer.writerows([[line[i] for i in range(0, len(line), 24)] for line in results.available_power])
 
         writer.writerow(["total PO :", tot_po, "total FO :", tot_fo])
-        writer.writerow(
-            ["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)]
-        )
+        writer.writerow(["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)])
 
         writer.writerow(["total simultaneous PO :"])
         writer.writerows(tots_simult_po)
@@ -152,12 +138,7 @@ def test_max_po(cluster_high_por, output_directory):
         writer = csv.writer(file, delimiter=",", quotechar='"')
 
         writer.writerow(["timeseries :"])
-        writer.writerows(
-            [
-                [line[i] for i in range(0, len(line), 24)]
-                for line in results.available_power
-            ]
-        )
+        writer.writerows([[line[i] for i in range(0, len(line), 24)] for line in results.available_power])
 
         writer.writerow(["total simultaneous PO :"])
         writer.writerows(tots_simult_po)

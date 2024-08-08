@@ -41,14 +41,7 @@ def test_cluster(cluster, output_directory):
         writer = csv.writer(file, delimiter=",", quotechar='"')
 
         writer.writerow(["timeseries :"])
-        writer.writerows(
-            [
-                [line[i] for i in range(0, len(line), 24)]
-                for line in results.available_power
-            ]
-        )
+        writer.writerows([[line[i] for i in range(0, len(line), 24)] for line in results.available_power])
 
         writer.writerow(["total PO :", tot_po, "total FO :", tot_fo])
-        writer.writerow(
-            ["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)]
-        )
+        writer.writerow(["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)])

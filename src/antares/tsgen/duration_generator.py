@@ -62,9 +62,7 @@ class GeneratorWrapper(DurationGenerator):
 
 
 class UniformDurationGenerator(DurationGenerator):
-    def __init__(
-        self, rng: RNG, volatility: float, expecs: npt.NDArray[np.int_]
-    ) -> None:
+    def __init__(self, rng: RNG, volatility: float, expecs: npt.NDArray[np.int_]) -> None:
         self.rng = rng
         self.a = np.empty(len(expecs), dtype=float)
         self.b = np.empty(len(expecs), dtype=float)
@@ -82,9 +80,7 @@ class UniformDurationGenerator(DurationGenerator):
 
 
 class GeometricDurationGenerator(DurationGenerator):
-    def __init__(
-        self, rng: RNG, volatility: float, expecs: npt.NDArray[np.int_]
-    ) -> None:
+    def __init__(self, rng: RNG, volatility: float, expecs: npt.NDArray[np.int_]) -> None:
         self.rng = rng
         self.a = np.empty(len(expecs), dtype=float)
         self.b = np.empty(len(expecs), dtype=float)

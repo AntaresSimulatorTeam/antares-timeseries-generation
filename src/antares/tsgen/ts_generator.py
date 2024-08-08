@@ -68,21 +68,13 @@ def _check_array(condition: npt.NDArray[np.bool_], message: str) -> None:
 
 def _check_cluster(cluster: ThermalCluster) -> None:
     if cluster.unit_count <= 0:
-        raise ValueError(
-            f"Unit count must be strictly positive, got {cluster.unit_count}."
-        )
+        raise ValueError(f"Unit count must be strictly positive, got {cluster.unit_count}.")
     if cluster.nominal_power <= 0:
-        raise ValueError(
-            f"Nominal power must be strictly positive, got {cluster.nominal_power}."
-        )
+        raise ValueError(f"Nominal power must be strictly positive, got {cluster.nominal_power}.")
     if cluster.fo_volatility < 0:
-        raise ValueError(
-            f"Forced outage volatility must be positive, got {cluster.unit_count}."
-        )
+        raise ValueError(f"Forced outage volatility must be positive, got {cluster.unit_count}.")
     if cluster.po_volatility < 0:
-        raise ValueError(
-            f"Planned outage volatility must be positive, got {cluster.unit_count}."
-        )
+        raise ValueError(f"Planned outage volatility must be positive, got {cluster.unit_count}.")
 
     _check_1_dim(cluster.fo_rate, "Forced outage failure rate")
     _check_1_dim(cluster.fo_duration, "Forced outage duration")
@@ -94,27 +86,13 @@ def _check_cluster(cluster: ThermalCluster) -> None:
     if len(cluster.modulation) != 8760:
         raise ValueError("hourly modulation array must have 8760 values.")
 
-    _check_array(
-        cluster.fo_rate < 0, "Forced failure rate is negative on following days"
-    )
-    _check_array(
-        cluster.fo_rate > 1, "Forced failure rate is greater than 1 on following days"
-    )
-    _check_array(
-        cluster.fo_duration < 0, "Forced outage duration is negative on following days"
-    )
-    _check_array(
-        cluster.po_rate < 0, "Planned failure rate is negative on following days"
-    )
-    _check_array(
-        cluster.po_rate > 1, "Planned failure rate is greater than 1 on following days"
-    )
-    _check_array(
-        cluster.po_duration < 0, "Planned outage duration is negative on following days"
-    )
-    _check_array(
-        cluster.modulation < 0, "Hourly modulation is negative on following hours"
-    )
+    _check_array(cluster.fo_rate < 0, "Forced failure rate is negative on following days")
+    _check_array(cluster.fo_rate > 1, "Forced failure rate is greater than 1 on following days")
+    _check_array(cluster.fo_duration < 0, "Forced outage duration is negative on following days")
+    _check_array(cluster.po_rate < 0, "Planned failure rate is negative on following days")
+    _check_array(cluster.po_rate > 1, "Planned failure rate is greater than 1 on following days")
+    _check_array(cluster.po_duration < 0, "Planned outage duration is negative on following days")
+    _check_array(cluster.modulation < 0, "Hourly modulation is negative on following hours")
 
     lengths = {
         len(a)
@@ -165,17 +143,11 @@ def _daily_to_hourly(daily_data: npt.NDArray) -> npt.NDArray:
     return np.repeat(daily_data, 24, axis=1)
 
 
-def _categorize_outages(
-    available_units: int, po_candidates: int, fo_candidates: int
-) -> Tuple[int, int, int]:
+def _categorize_outages(available_units: int, po_candidates: int, fo_candidates: int) -> Tuple[int, int, int]:
     if po_candidates > available_units:
-        raise ValueError(
-            "Planned outages candidate cannot be greater than available units."
-        )
+        raise ValueError("Planned outages candidate cannot be greater than available units.")
     if fo_candidates > available_units:
-        raise ValueError(
-            "Forced outages candidate cannot be greater than available units."
-        )
+        raise ValueError("Forced outages candidate cannot be greater than available units.")
 
     if available_units == 0:
         return 0, 0, 0
@@ -217,6 +189,7 @@ class ForcedOutagesDrawer:
             fo_candidates = 0
         return fo_candidates
 
+
 class PlannedOutagesDrawer:
     def __init__(self, rng: RNG, unit_count: int, failure_rate: FloatArray):
         days = len(failure_rate)
@@ -245,9 +218,7 @@ class PlannedOutagesDrawer:
             if draw > last:
                 cumul = last
                 for d in range(1, apparent_available_units + 1):
-                    last = (
-                            last * self.pp[day] * (apparent_available_units + 1 - d) / d
-                    )
+                    last = last * self.pp[day] * (apparent_available_units + 1 - d) / d
                     cumul += last
                     po_candidates = d
                     if draw <= cumul:
@@ -332,9 +303,7 @@ class ThermalDataGenerator:
             for day in range(self.days):
                 # = return of units wich were in outage =
                 current_planned_outages -= logp[now]
-                logp[
-                    now
-                ] = 0  # set to 0 because this cell will be use again later (in self.log_size days)
+                logp[now] = 0  # set to 0 because this cell will be use again later (in self.log_size days)
                 current_available_units += log[now]
                 log[now] = 0
 
@@ -344,12 +313,12 @@ class ThermalDataGenerator:
                     for index in range(1, log_size):
                         if cumul_retour == cible_retour:
                             break
-                        if logp[(now+index) % log_size] + cumul_retour >= cible_retour:
-                            logp[(now + index) % log_size] -= (cible_retour - cumul_retour)
-                            log[(now + index) % log_size] -= (cible_retour - cumul_retour)
+                        if logp[(now + index) % log_size] + cumul_retour >= cible_retour:
+                            logp[(now + index) % log_size] -= cible_retour - cumul_retour
+                            log[(now + index) % log_size] -= cible_retour - cumul_retour
                             cumul_retour = cible_retour
                         else:
-                            if logp[(now+index) % log_size] > 0:
+                            if logp[(now + index) % log_size] > 0:
                                 cumul_retour += logp[(now + index) % log_size]
                                 log[(now + index) % log_size] -= logp[(now + index) % log_size]
                                 logp[(now + index) % log_size] = 0
@@ -379,17 +348,12 @@ class ThermalDataGenerator:
                     po_candidates = cluster.npo_max[day] - current_planned_outages
                     current_planned_outages = cluster.npo_max[day]
                 elif po_candidates + current_planned_outages < cluster.npo_min[day]:
-                    if (
-                        cluster.npo_min[day] - current_planned_outages
-                        > current_available_units
-                    ):
+                    if cluster.npo_min[day] - current_planned_outages > current_available_units:
                         stock -= current_available_units - po_candidates
                         po_candidates = current_available_units
                         current_planned_outages += po_candidates
                     else:
-                        stock -= cluster.npo_min[day] - (
-                            po_candidates + current_planned_outages
-                        )
+                        stock -= cluster.npo_min[day] - (po_candidates + current_planned_outages)
                         po_candidates = cluster.npo_min[day] - current_planned_outages
                         current_planned_outages = cluster.npo_min[day]
                 else:
@@ -402,9 +366,7 @@ class ThermalDataGenerator:
                 )
 
                 # = units stopping =
-                current_available_units -= (
-                    planned_outages + forced_outages + mixed_outages
-                )
+                current_available_units -= planned_outages + forced_outages + mixed_outages
 
                 # = generating outage duration = (from the law)
                 po_duration = 0
@@ -439,8 +401,6 @@ class ThermalDataGenerator:
                 now = (now + 1) % log_size
 
         hourly_available_units = _daily_to_hourly(output.available_units)
-        output.available_power = (
-            hourly_available_units * cluster.nominal_power * cluster.modulation
-        )
+        output.available_power = hourly_available_units * cluster.nominal_power * cluster.modulation
 
         return output

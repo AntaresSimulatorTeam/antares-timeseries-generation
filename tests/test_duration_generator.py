@@ -51,9 +51,7 @@ def test_geometric_law_generator(rng, volatility, expectations, expected):
 
 def test_legacy_generator_skips_rng_when_zero_vol():
     rng = MersenneTwisterRNG()
-    generator = make_duration_generator(
-        rng, ProbabilityLaw.UNIFORM, volatility=0, expectations=[10, 10]
-    )
+    generator = make_duration_generator(rng, ProbabilityLaw.UNIFORM, volatility=0, expectations=[10, 10])
     generator.generate_duration(0)
     # Check we still have a random number identical to the first one that should be generated
     assert rng.next() == MersenneTwisterRNG().next()
