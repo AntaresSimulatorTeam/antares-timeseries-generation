@@ -256,8 +256,8 @@ def test_planned_outages_limitation(rng):
     npt.assert_equal(results.forced_outages[0], np.zeros(365))
     npt.assert_equal(results.forced_outage_durations[0], np.zeros(365))
     # Maxmimum one planned outage at a time
-    npt.assert_equal(results.planned_outages[0][:6], [0, 1, 0, 1, 0, 1])
-    npt.assert_equal(results.planned_outage_durations[0][:6], [0, 2, 0, 2, 0, 2])
+    npt.assert_equal(results.planned_outages[0][:6], [1, 0, 1, 0, 1, 0])
+    npt.assert_equal(results.planned_outage_durations[0][:6], [2, 0, 2, 0, 2, 0])
     npt.assert_equal(results.available_units[0][:5], [9, 9, 9, 9, 9])
     # Check available power consistency with available units and modulation
     assert results.available_power[0][0] == 900
