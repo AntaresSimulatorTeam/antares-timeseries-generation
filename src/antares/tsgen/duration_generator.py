@@ -62,9 +62,7 @@ class GeneratorWrapper(DurationGenerator):
 
 
 class UniformDurationGenerator(DurationGenerator):
-    def __init__(
-        self, rng: RNG, volatility: float, expecs: npt.NDArray[np.int_]
-    ) -> None:
+    def __init__(self, rng: RNG, volatility: float, expecs: npt.NDArray[np.int_]) -> None:
         self.rng = rng
         self.a = np.empty(len(expecs), dtype=float)
         self.b = np.empty(len(expecs), dtype=float)
@@ -82,9 +80,7 @@ class UniformDurationGenerator(DurationGenerator):
 
 
 class GeometricDurationGenerator(DurationGenerator):
-    def __init__(
-        self, rng: RNG, volatility: float, expecs: npt.NDArray[np.int_]
-    ) -> None:
+    def __init__(self, rng: RNG, volatility: float, expecs: npt.NDArray[np.int_]) -> None:
         self.rng = rng
         self.a = np.empty(len(expecs), dtype=float)
         self.b = np.empty(len(expecs), dtype=float)
@@ -95,15 +91,15 @@ class GeometricDurationGenerator(DurationGenerator):
                 self.a[day] = expec - 1 / ytemp
                 self.b[day] = 1 / log(1 - ytemp)
             else:
-                self.a[day] = expec - 1
-                self.b[day] = 0
+                self.a[day] = 1
+                self.b[day] = 1
 
     def generate_duration(self, day: int) -> int:
         """
         generation of random outage duration
         """
         rnd_nb = self.rng.next()
-        return min(int(1 + self.a[day] + self.b[day] * log(rnd_nb)), 1999)
+        return min(1 + int(self.a[day] + self.b[day] * log(rnd_nb)), 1999)
 
 
 def make_duration_generator(

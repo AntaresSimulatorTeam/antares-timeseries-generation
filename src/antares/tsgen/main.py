@@ -15,24 +15,12 @@ from pathlib import Path
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--study", type=Path, help="path to the root directory of the study"
-    )
-    parser.add_argument(
-        "--models", nargs="+", type=Path, help="list of path to model file, *.yml"
-    )
-    parser.add_argument(
-        "--component", type=Path, help="path to the component file, *.yml"
-    )
-    parser.add_argument(
-        "--timeseries", type=Path, help="path to the timeseries directory"
-    )
-    parser.add_argument(
-        "--duration", type=int, help="duration of the simulation", default=1
-    )
-    parser.add_argument(
-        "--scenario", type=int, help="number of scenario of the simulation", default=1
-    )
+    parser.add_argument("--study", type=Path, help="path to the root directory of the study")
+    parser.add_argument("--models", nargs="+", type=Path, help="list of path to model file, *.yml")
+    parser.add_argument("--component", type=Path, help="path to the component file, *.yml")
+    parser.add_argument("--timeseries", type=Path, help="path to the timeseries directory")
+    parser.add_argument("--duration", type=int, help="duration of the simulation", default=1)
+    parser.add_argument("--scenario", type=int, help="number of scenario of the simulation", default=1)
 
     parser.parse_args()
 

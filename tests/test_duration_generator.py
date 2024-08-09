@@ -39,7 +39,7 @@ def test_uniform_law_generator(rng, volatility, expectations, expected):
 @pytest.mark.parametrize(
     "volatility,expectations,expected",
     [
-        (0, [4, 2, 3, 1], [4, 2, 3, 1]),  # Expecting output = input
+        (0, [4, 2, 3, 1], [1, 1, 1, 1]),  # Expecting list of 1 to fit with C++ code
         (1, [4, 2, 3, 1], [1, 3, 1, 1]),
         (2, [4, 2, 3, 1], [-1, 5, 0, 1]),  # Expecting twice the deviation as above
     ],
@@ -51,9 +51,7 @@ def test_geometric_law_generator(rng, volatility, expectations, expected):
 
 def test_legacy_generator_skips_rng_when_zero_vol():
     rng = MersenneTwisterRNG()
-    generator = make_duration_generator(
-        rng, ProbabilityLaw.UNIFORM, volatility=0, expectations=[10, 10]
-    )
+    generator = make_duration_generator(rng, ProbabilityLaw.UNIFORM, volatility=0, expectations=[10, 10])
     generator.generate_duration(0)
     # Check we still have a random number identical to the first one that should be generated
     assert rng.next() == MersenneTwisterRNG().next()

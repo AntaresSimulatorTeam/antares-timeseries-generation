@@ -62,18 +62,10 @@ class MersenneTwister:
 
             for j in range(self.periodN - self.periodM, self.periodN - 1):
                 y = (self.mt[j] & self.UPPER_MASK) | (self.mt[j + 1] & self.LOWER_MASK)
-                self.mt[j] = (
-                    self.mt[j + self.periodM - self.periodN]
-                    ^ (y >> 1)
-                    ^ self.MAG[y & 1]
-                )
+                self.mt[j] = self.mt[j + self.periodM - self.periodN] ^ (y >> 1) ^ self.MAG[y & 1]
 
-            y = (self.mt[self.periodN - 1] & self.UPPER_MASK) | (
-                self.mt[0] & self.LOWER_MASK
-            )
-            self.mt[self.periodN - 1] = (
-                self.mt[self.periodM - 1] ^ (y >> 1) ^ self.MAG[y & 1]
-            )
+            y = (self.mt[self.periodN - 1] & self.UPPER_MASK) | (self.mt[0] & self.LOWER_MASK)
+            self.mt[self.periodN - 1] = self.mt[self.periodM - 1] ^ (y >> 1) ^ self.MAG[y & 1]
 
             self.mti = 0
 
