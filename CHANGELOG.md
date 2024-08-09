@@ -1,6 +1,16 @@
 Changelog
 =========
 
+v0.1.4 (2023-08-09)
+-------------------
+
+### Bug fixes
+* various code fixes inside module `ts_generator.py` to match with the existing C++ code
+
+### Checkstyle
+* add line-length limit of 120 for black and isort
+
+
 v0.1.3 (2023-08-05)
 -------------------
 

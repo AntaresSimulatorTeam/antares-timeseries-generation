@@ -1,6 +1,6 @@
 [project]
 name = "antares-timeseries-generation"
-version = "0.1.3"
+version = "0.1.4"
 license = {text="MPL-2.0"}
 description = 'Timeseries generation library aiming at creating input data for Antares simulator studies.'
 readme = "README.md"
