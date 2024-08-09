@@ -14,6 +14,7 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
+from antares.tsgen.random_generator import MersenneTwisterRNG
 from antares.tsgen.ts_generator import (
     ProbabilityLaw,
     ThermalCluster,
@@ -295,3 +296,41 @@ def test_planned_outages_min_limitation(rng):
     # Check available power consistency with available units and modulation
     assert results.available_power[0][0] == 800
     assert results.available_power[0][4 * 24] == 800
+
+
+def test_with_long_fo_and_po_duration(data_directory):
+    days = 365
+    modulation_matrix = np.ones(8760, dtype=float)
+    modulation_matrix[:24] = 0.5
+    modulation_matrix[24:52] = 0.1
+    fo_duration = np.full(days, 1, dtype=int)
+    po_duration = np.full(days, 1, dtype=int)
+    fo_rate = np.full(days, 0.01, dtype=float)
+    po_rate = np.full(days, 0.3, dtype=float)
+    fo_duration[:31] = 2
+    po_duration[:31] = 3
+    fo_rate[:31] = 0.1
+    po_rate[:31] = 0.02
+    cluster = ThermalCluster(
+        unit_count=10,
+        nominal_power=500,
+        modulation=modulation_matrix,
+        fo_law=ProbabilityLaw.UNIFORM,
+        fo_volatility=0.5,
+        po_law=ProbabilityLaw.GEOMETRIC,
+        po_volatility=0.5,
+        fo_duration=fo_duration,
+        fo_rate=fo_rate,
+        po_duration=po_duration,
+        po_rate=po_rate,
+        npo_min=0 * np.ones(dtype=int, shape=days),
+        npo_max=3 * np.ones(dtype=int, shape=days),
+    )
+    rng = MersenneTwisterRNG(seed=3005489)
+    generator = ThermalDataGenerator(rng=rng, days=days)
+    results = generator.generate_time_series(cluster, 10)
+
+    expected_matrix = np.loadtxt(
+        data_directory.joinpath(f"expected_result_long_po_and_fo_duration.txt"), delimiter="\t"
+    )
+    assert np.array_equal(results.available_power.T, expected_matrix)
