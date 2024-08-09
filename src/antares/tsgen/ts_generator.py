@@ -372,10 +372,10 @@ class ThermalDataGenerator:
                 po_duration = 0
                 fo_duration = 0
 
-                if planned_outages != 0 or mixed_outages != 0:
-                    po_duration = pod_generator.generate_duration(day)
                 if forced_outages != 0 or mixed_outages != 0:
                     fo_duration = fod_generator.generate_duration(day)
+                if planned_outages != 0 or mixed_outages != 0:
+                    po_duration = pod_generator.generate_duration(day)
 
                 if planned_outages != 0:
                     return_timestep = (now + po_duration) % log_size
