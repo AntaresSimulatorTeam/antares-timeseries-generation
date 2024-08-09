@@ -242,9 +242,9 @@ def _compute_failure_rates(outage_rates: FloatArray, durations: IntArray) -> Flo
 def _combine_failure_rates(rates1: FloatArray, rates2: FloatArray) -> None:
     ## i dont understand what these calulations are for
     ## consequently reduce the lower failure rate
-    mask = rates1 < rates2
+    mask = (rates1 > 0) & (rates1 < rates2)
     rates1[mask] *= (1 - rates2[mask]) / (1 - rates1[mask])
-    mask = rates2 < rates1
+    mask = (rates2 > 0) & (rates2 < rates1)
     rates2[mask] *= (1 - rates1[mask]) / (1 - rates2[mask])
 
 
@@ -402,5 +402,5 @@ class ThermalDataGenerator:
 
         hourly_available_units = _daily_to_hourly(output.available_units)
         output.available_power = hourly_available_units * cluster.nominal_power * cluster.modulation
-
+        np.round(output.available_power)
         return output
