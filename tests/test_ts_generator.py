@@ -42,8 +42,8 @@ def test_one_unit_cluster(cluster_1, output_directory):
     tot_po = 0
     tot_fo = 0
     for i in range(365 * ts_nb):
-        tot_po += results.planned_outages[i // 365][i % 365] * 2
-        tot_fo += results.forced_outages[i // 365][i % 365] * 8
+        tot_po += results.planned_outages[i % 365][i // 365] * 2
+        tot_fo += results.forced_outages[i % 365][i // 365] * 8
     true_por = tot_po / (365 * ts_nb)
     true_for = tot_fo / (365 * ts_nb)
 
@@ -66,8 +66,8 @@ def test_hundred_unit_cluster(cluster_100, output_directory):
     tot_po = 0
     tot_fo = 0
     for i in range(365 * ts_nb):
-        tot_po += results.planned_outages[i // 365][i % 365] * 2
-        tot_fo += results.forced_outages[i // 365][i % 365] * 8
+        tot_po += results.planned_outages[i % 365][i // 365] * 2
+        tot_fo += results.forced_outages[i % 365][i // 365] * 8
     true_por = tot_po / (365 * ts_nb)
     true_for = tot_fo / (365 * ts_nb)
 
@@ -76,8 +76,8 @@ def test_hundred_unit_cluster(cluster_100, output_directory):
     cursor = [0] * 10
     tot_simult_po = 0
     for i in range(365 * ts_nb):
-        po = results.planned_outages[i // 365][i % 365]
-        mo = results.mixed_outages[i // 365][i % 365]
+        po = results.planned_outages[i % 365][i // 365]
+        mo = results.mixed_outages[i % 365][i // 365]
 
         tot_simult_po += po
         tot_simult_po += mo
@@ -117,8 +117,8 @@ def test_max_po(cluster_high_por, output_directory):
     cursor = [0] * 10
     tot_simult_po = 0
     for i in range(365 * ts_nb):
-        po = results.planned_outages[i // 365][i % 365]
-        mo = results.mixed_outages[i // 365][i % 365]
+        po = results.planned_outages[i % 365][i // 365]
+        mo = results.mixed_outages[i % 365][i // 365]
 
         tot_simult_po += po
         tot_simult_po += mo

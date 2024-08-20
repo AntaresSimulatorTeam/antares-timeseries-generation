@@ -29,7 +29,7 @@ from antares.tsgen.ts_generator import (
 def test_daily_to_hourly():
     daily = np.array([[1, 2]])
     hourly = _daily_to_hourly(daily)
-    expected = [[1] * 24 + [2] * 24]
+    expected = [[1, 2]] * 24
     npt.assert_equal(hourly, expected)
 
 
@@ -186,17 +186,18 @@ def test_forced_outages(rng):
     generator = ThermalDataGenerator(rng=rng, days=days)
     results = generator.generate_time_series(cluster, 1)
     # 2 forced outages occur on day 5, with duration 10
-    npt.assert_equal(results.forced_outages[0][:6], [0, 0, 0, 0, 2, 0])
-    npt.assert_equal(results.forced_outage_durations[0][:6], [0, 0, 0, 0, 10, 0])
+    npt.assert_equal(results.forced_outages.T[0][:6], [0, 0, 0, 0, 2, 0])
+    npt.assert_equal(results.forced_outage_durations.T[0][:6], [0, 0, 0, 0, 10, 0])
     # No planned outage
-    npt.assert_equal(results.planned_outages[0], np.zeros(365))
-    npt.assert_equal(results.planned_outage_durations[0], np.zeros(365))
+    npt.assert_equal(results.planned_outages.T[0], np.zeros(365))
+    npt.assert_equal(results.planned_outage_durations.T[0], np.zeros(365))
 
-    npt.assert_equal(results.available_units[0][:5], [9, 9, 9, 9, 8])
+    npt.assert_equal(results.available_units.T[0][:5], [9, 9, 9, 9, 8])
     # Check available power consistency with available units and modulation
-    assert results.available_power[0][0] == 900
-    assert results.available_power[0][12] == 450  # Modulation is 0.5 for hour 12
-    assert results.available_power[0][4 * 24] == 800
+    available_power = results.available_power.T
+    assert available_power[0][0] == 900
+    assert available_power[0][12] == 450  # Modulation is 0.5 for hour 12
+    assert available_power[0][4 * 24] == 800
 
 
 def test_planned_outages(rng):
@@ -221,15 +222,16 @@ def test_planned_outages(rng):
     generator = ThermalDataGenerator(rng=rng, days=days)
     results = generator.generate_time_series(cluster, 1)
     # 0 forced outage
-    npt.assert_equal(results.forced_outages[0], np.zeros(365))
-    npt.assert_equal(results.forced_outage_durations[0], np.zeros(365))
+    npt.assert_equal(results.forced_outages.T[0], np.zeros(365))
+    npt.assert_equal(results.forced_outage_durations.T[0], np.zeros(365))
     # No planned outage
-    npt.assert_equal(results.planned_outages[0][:6], [0, 0, 0, 0, 2, 0])
-    npt.assert_equal(results.available_units[0][:5], [9, 9, 9, 9, 8])
+    npt.assert_equal(results.planned_outages.T[0][:6], [0, 0, 0, 0, 2, 0])
+    npt.assert_equal(results.available_units.T[0][:5], [9, 9, 9, 9, 8])
     # Check available power consistency with available units and modulation
-    assert results.available_power[0][0] == 900
-    assert results.available_power[0][12] == 450  # Modulation is 0.5 for hour 12
-    assert results.available_power[0][4 * 24] == 800
+    available_power = results.available_power.T
+    assert available_power[0][0] == 900
+    assert available_power[0][12] == 450  # Modulation is 0.5 for hour 12
+    assert available_power[0][4 * 24] == 800
 
 
 def test_planned_outages_limitation(rng):
@@ -254,15 +256,16 @@ def test_planned_outages_limitation(rng):
     generator = ThermalDataGenerator(rng=rng, days=days)
     results = generator.generate_time_series(cluster, 1)
     # No forced outage
-    npt.assert_equal(results.forced_outages[0], np.zeros(365))
-    npt.assert_equal(results.forced_outage_durations[0], np.zeros(365))
+    npt.assert_equal(results.forced_outages.T[0], np.zeros(365))
+    npt.assert_equal(results.forced_outage_durations.T[0], np.zeros(365))
     # Maxmimum one planned outage at a time
-    npt.assert_equal(results.planned_outages[0][:6], [1, 0, 1, 0, 1, 0])
-    npt.assert_equal(results.planned_outage_durations[0][:6], [2, 0, 2, 0, 2, 0])
-    npt.assert_equal(results.available_units[0][:5], [9, 9, 9, 9, 9])
+    npt.assert_equal(results.planned_outages.T[0][:6], [1, 0, 1, 0, 1, 0])
+    npt.assert_equal(results.planned_outage_durations.T[0][:6], [2, 0, 2, 0, 2, 0])
+    npt.assert_equal(results.available_units.T[0][:5], [9, 9, 9, 9, 9])
     # Check available power consistency with available units and modulation
-    assert results.available_power[0][0] == 900
-    assert results.available_power[0][4 * 24] == 900
+    available_power = results.available_power.T
+    assert available_power[0][0] == 900
+    assert available_power[0][4 * 24] == 900
 
 
 def test_planned_outages_min_limitation(rng):
@@ -287,15 +290,16 @@ def test_planned_outages_min_limitation(rng):
     generator = ThermalDataGenerator(rng=rng, days=days)
     results = generator.generate_time_series(cluster, 1)
     # No forced outage
-    npt.assert_equal(results.forced_outages[0], np.zeros(365))
-    npt.assert_equal(results.forced_outage_durations[0], np.zeros(365))
+    npt.assert_equal(results.forced_outages.T[0], np.zeros(365))
+    npt.assert_equal(results.forced_outage_durations.T[0], np.zeros(365))
     # Maxmimum one planned outage at a time
-    npt.assert_equal(results.planned_outages[0][:6], [0, 0, 1, 0, 0, 1])
-    npt.assert_equal(results.planned_outage_durations[0][:6], [0, 0, 10, 0, 0, 10])
-    npt.assert_equal(results.available_units[0][:5], [8, 8, 8, 8, 8])
+    npt.assert_equal(results.planned_outages.T[0][:6], [0, 0, 1, 0, 0, 1])
+    npt.assert_equal(results.planned_outage_durations.T[0][:6], [0, 0, 10, 0, 0, 10])
+    npt.assert_equal(results.available_units.T[0][:5], [8, 8, 8, 8, 8])
     # Check available power consistency with available units and modulation
-    assert results.available_power[0][0] == 800
-    assert results.available_power[0][4 * 24] == 800
+    available_power = results.available_power.T
+    assert available_power[0][0] == 800
+    assert available_power[0][4 * 24] == 800
 
 
 def test_with_long_fo_and_po_duration(data_directory):
@@ -333,4 +337,4 @@ def test_with_long_fo_and_po_duration(data_directory):
     expected_matrix = np.loadtxt(
         data_directory.joinpath(f"expected_result_long_po_and_fo_duration.txt"), delimiter="\t"
     )
-    assert np.array_equal(results.available_power.T, expected_matrix)
+    assert np.array_equal(results.available_power, expected_matrix)
