@@ -111,17 +111,17 @@ def _check_cluster(cluster: ThermalCluster) -> None:
 
 class OutputTimeseries:
     def __init__(self, ts_count: int, days: int) -> None:
-        self.available_units = np.zeros(shape=(ts_count, days), dtype=int)
+        self.available_units = np.zeros(shape=(days, ts_count), dtype=int)
         # available power each hours
-        self.available_power = np.zeros((ts_count, 24 * days), dtype=float)
+        self.available_power = np.zeros((24 * days, ts_count), dtype=float)
         # number of pure planed, pure forced and mixed outage each day
-        self.planned_outages = np.zeros((ts_count, days), dtype=int)
-        self.forced_outages = np.zeros((ts_count, days), dtype=int)
-        self.mixed_outages = np.zeros((ts_count, days), dtype=int)
+        self.planned_outages = np.zeros((days, ts_count), dtype=int)
+        self.forced_outages = np.zeros((days, ts_count), dtype=int)
+        self.mixed_outages = np.zeros((days, ts_count), dtype=int)
         # number of pure planed and pure forced outage duration each day
         # (mixed outage duration = pod + fod)
-        self.planned_outage_durations = np.zeros((ts_count, days), dtype=int)
-        self.forced_outage_durations = np.zeros((ts_count, days), dtype=int)
+        self.planned_outage_durations = np.zeros((days, ts_count), dtype=int)
+        self.forced_outage_durations = np.zeros((days, ts_count), dtype=int)
 
 
 def _column_powers(column: FloatArray, width: int) -> npt.NDArray:
@@ -140,7 +140,7 @@ def _daily_to_hourly(daily_data: npt.NDArray) -> npt.NDArray:
     """
     if daily_data.ndim != 2:
         raise ValueError("Daily data must be a 2D-array")
-    return np.repeat(daily_data, 24, axis=1)
+    return np.repeat(daily_data, 24, axis=0)
 
 
 def _categorize_outages(available_units: int, po_candidates: int, fo_candidates: int) -> Tuple[int, int, int]:
@@ -391,16 +391,16 @@ class ThermalDataGenerator:
 
                 # = storing output in output arrays =
                 if ts_index >= 0:  # drop the 2 first generated timeseries
-                    output.planned_outages[ts_index, day] = planned_outages
-                    output.forced_outages[ts_index, day] = forced_outages
-                    output.mixed_outages[ts_index, day] = mixed_outages
-                    output.planned_outage_durations[ts_index, day] = po_duration
-                    output.forced_outage_durations[ts_index, day] = fo_duration
-                    output.available_units[ts_index, day] = current_available_units
+                    output.planned_outages[day, ts_index] = planned_outages
+                    output.forced_outages[day, ts_index] = forced_outages
+                    output.mixed_outages[day, ts_index] = mixed_outages
+                    output.planned_outage_durations[day, ts_index] = po_duration
+                    output.forced_outage_durations[day, ts_index] = fo_duration
+                    output.available_units[day, ts_index] = current_available_units
 
                 now = (now + 1) % log_size
 
         hourly_available_units = _daily_to_hourly(output.available_units)
-        output.available_power = hourly_available_units * cluster.nominal_power * cluster.modulation
+        output.available_power = hourly_available_units * cluster.nominal_power * cluster.modulation[:, np.newaxis]
         np.round(output.available_power)
         return output
