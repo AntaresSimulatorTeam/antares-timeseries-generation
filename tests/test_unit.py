@@ -60,6 +60,29 @@ def base_cluster_365_days():
     )
 
 
+def test_cluster_with_null_duration(rng):
+    days = 365
+    args = {
+        "unit_count": 10,
+        "nominal_power": 100,
+        "modulation": np.ones(dtype=float, shape=8760),
+        "fo_law": ProbabilityLaw.UNIFORM,
+        "fo_volatility": 0,
+        "po_law": ProbabilityLaw.UNIFORM,
+        "po_volatility": 0,
+        "fo_duration": 10 * np.ones(dtype=int, shape=days),
+        "fo_rate": 0.2 * np.zeros(dtype=float, shape=days),
+        "po_duration": 10 * np.ones(dtype=int, shape=days),
+        "po_rate": np.zeros(dtype=float, shape=days),
+        "npo_min": np.zeros(dtype=int, shape=days),
+        "npo_max": 10 * np.zeros(dtype=int, shape=days),
+    }
+    for duration_type in ["po_duration", "fo_duration"]:
+        args[duration_type] = 10 * np.zeros(dtype=int, shape=days)
+        with pytest.raises(ValueError, match="outage duration is null or negative on following days"):
+            ThermalCluster(**args)
+
+
 def test_invalid_fo_rates(rng, base_cluster_365_days):
     days = 365
     cluster = base_cluster_365_days
