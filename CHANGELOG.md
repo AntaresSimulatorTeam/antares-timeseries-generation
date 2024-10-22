@@ -1,6 +1,12 @@
 Changelog
 =========
 
+v0.1.6 (2023-10-22)
+-------------------
+
+### Bug fixes
+* forbid cluster creation with null durations 
+
 v0.1.5 (2023-08-21)
 -------------------
 
