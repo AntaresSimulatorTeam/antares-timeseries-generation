@@ -236,10 +236,7 @@ def _compute_failure_rates(outage_rates: FloatArray, durations: IntArray) -> Flo
     from outage rates (= share of a period during which a unit is in outage),
     and outage duration expectations.
     """
-    denominator = outage_rates + durations * (1 - outage_rates)
-    if np.any(denominator != 0):
-        return outage_rates / denominator
-    return denominator
+    return outage_rates / (outage_rates + durations * (1 - outage_rates))
 
 
 def _combine_failure_rates(rates1: FloatArray, rates2: FloatArray) -> None:

@@ -60,7 +60,7 @@ def base_cluster_365_days():
     )
 
 
-def test_ts_gen_with_matrix_full_of_zeros(rng):
+def test_cluster_with_null_duration(rng):
     days = 365
     with pytest.raises(ValueError, match="Planned outage duration is null or negative on following days"):
         ThermalCluster(
