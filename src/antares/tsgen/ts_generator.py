@@ -88,7 +88,7 @@ def _check_cluster(cluster: ThermalCluster) -> None:
 
     _check_array(cluster.fo_rate < 0, "Forced failure rate is negative on following days")
     _check_array(cluster.fo_rate > 1, "Forced failure rate is greater than 1 on following days")
-    _check_array(cluster.fo_duration < 0, "Forced outage duration is negative on following days")
+    _check_array(cluster.fo_duration <= 0, "Forced outage duration is null or negative on following days")
     _check_array(cluster.po_rate < 0, "Planned failure rate is negative on following days")
     _check_array(cluster.po_rate > 1, "Planned failure rate is greater than 1 on following days")
     _check_array(cluster.po_duration <= 0, "Planned outage duration is null or negative on following days")
