@@ -37,7 +37,7 @@ def test_one_unit_cluster(cluster_1, output_directory):
     ts_nb = 4
 
     generator = ThermalDataGenerator()
-    results = generator.generate_time_series(cluster_1, ts_nb)
+    results = generator.generate_time_series_for_clusters(cluster_1, ts_nb)
 
     tot_po = 0
     tot_fo = 0
@@ -61,7 +61,7 @@ def test_hundred_unit_cluster(cluster_100, output_directory):
     ts_nb = 50
 
     generator = ThermalDataGenerator()
-    results = generator.generate_time_series(cluster_100, ts_nb)
+    results = generator.generate_time_series_for_clusters(cluster_100, ts_nb)
 
     tot_po = 0
     tot_fo = 0
@@ -88,8 +88,8 @@ def test_hundred_unit_cluster(cluster_100, output_directory):
         cursor[9] += mo
 
         if i > 10:
-            assert tot_simult_po <= cluster_100.npo_max[i % 365]
-            assert tot_simult_po >= cluster_100.npo_min[i % 365]
+            assert tot_simult_po <= cluster_100.outage_gen_params.npo_max[i % 365]
+            assert tot_simult_po >= cluster_100.outage_gen_params.npo_min[i % 365]
 
         tots_simult_po[i // 365].append(tot_simult_po)
 
@@ -110,7 +110,7 @@ def test_max_po(cluster_high_por, output_directory):
     ts_nb = 4
 
     generator = ThermalDataGenerator()
-    results = generator.generate_time_series(cluster_high_por, ts_nb)
+    results = generator.generate_time_series_for_clusters(cluster_high_por, ts_nb)
 
     # check the max PO
     tots_simult_po = [[] for _ in range(ts_nb)]
@@ -129,8 +129,8 @@ def test_max_po(cluster_high_por, output_directory):
         cursor[9] += mo
 
         if i > 10:
-            assert tot_simult_po <= cluster_high_por.npo_max[i % 365]
-            assert tot_simult_po >= cluster_high_por.npo_min[i % 365]
+            assert tot_simult_po <= cluster_high_por.outage_gen_params.npo_max[i % 365]
+            assert tot_simult_po >= cluster_high_por.outage_gen_params.npo_min[i % 365]
 
         tots_simult_po[i // 365].append(tot_simult_po)
 

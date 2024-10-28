@@ -11,10 +11,11 @@
 # This file is part of the Antares project.
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Any
 
 import numpy as np
 import numpy.typing as npt
+from numpy import ndarray, dtype
 
 from antares.tsgen.duration_generator import ProbabilityLaw, make_duration_generator
 from antares.tsgen.random_generator import RNG, MersenneTwisterRNG
@@ -22,19 +23,14 @@ from antares.tsgen.random_generator import RNG, MersenneTwisterRNG
 # probabilities above FAILURE_RATE_EQ_1 are considered certain (equal to 1)
 FAILURE_RATE_EQ_1 = 0.999
 
-
 IntArray = npt.NDArray[np.int_]
 FloatArray = npt.NDArray[np.float_]
 
 
-@dataclass
-class ThermalCluster:
+@dataclass()
+class OutageGenerationParameters:
     # available units of the cluster
     unit_count: int
-    # nominal power
-    nominal_power: float
-    # modulation of the nominal power for a certain hour in the day (between 0 and 1)
-    modulation: IntArray
 
     # forced and planed outage parameters
     # indexed by day of the year
@@ -53,7 +49,53 @@ class ThermalCluster:
     po_volatility: float
 
     def __post_init__(self) -> None:
+        _check_outage_gen_params(self)
+
+
+@dataclass
+class ThermalCluster:
+    # available units of the cluster
+    #unit_count: int
+    outage_gen_params: OutageGenerationParameters
+    # nominal power
+    nominal_power: float
+    # modulation of the nominal power for a certain hour in the day (between 0 and 1)
+    modulation: IntArray
+
+    # forced and planed outage parameters
+    # indexed by day of the year
+    #fo_duration: IntArray
+    #fo_rate: FloatArray
+    #po_duration: IntArray
+    #po_rate: FloatArray
+    #npo_min: IntArray  # number of planed outage min in a day
+    #npo_max: IntArray  # number of planed outage max in a day
+
+    # forced and planed outage probability law and volatility
+    # volatility characterizes the distance from the expect at which the value drawn can be
+    #fo_law: ProbabilityLaw
+    #fo_volatility: float
+    #po_law: ProbabilityLaw
+    #po_volatility: float
+
+    def __post_init__(self) -> None:
         _check_cluster(self)
+
+
+@dataclass
+class LinkCapacity:
+    #outage generation parameters
+    outage_gen_params: OutageGenerationParameters
+
+    #nominal capacity
+    nominal_capacity: float
+
+    #direct / indirect modulation of the nominal capacity
+    modulation_direct: FloatArray
+    modulation_indirect: FloatArray
+
+    def __post_init__(self) -> None:
+        _check_link_capacity(self)
 
 
 def _check_1_dim(array: npt.NDArray, name: str) -> None:
@@ -66,49 +108,91 @@ def _check_array(condition: npt.NDArray[np.bool_], message: str) -> None:
         raise ValueError(f"{message}: {condition.nonzero()[0].tolist()}")
 
 
+def _check_outage_gen_params(outage_gen_params: OutageGenerationParameters) -> None:
+    if outage_gen_params.unit_count <= 0:
+        raise ValueError(f"Unit count must be strictly positive, got {outage_gen_params.unit_count}.")
+    if outage_gen_params.fo_volatility < 0:
+        raise ValueError(f"Forced outage volatility must be positive, got {outage_gen_params.unit_count}.")
+    if outage_gen_params.po_volatility < 0:
+        raise ValueError(f"Planned outage volatility must be positive, got {outage_gen_params.unit_count}.")
+
+    _check_1_dim(outage_gen_params.fo_rate, "Forced outage failure rate")
+    _check_1_dim(outage_gen_params.fo_duration, "Forced outage duration")
+    _check_1_dim(outage_gen_params.po_rate, "Planned failure rate")
+    _check_1_dim(outage_gen_params.po_duration, "Planned outage duration")
+    _check_1_dim(outage_gen_params.npo_min, "Minimum count of planned outages")
+    _check_1_dim(outage_gen_params.npo_max, "Maximum count of planned outages")
+
+    _check_array(outage_gen_params.fo_rate < 0, "Forced failure rate is negative on following days")
+    _check_array(outage_gen_params.fo_rate > 1, "Forced failure rate is greater than 1 on following days")
+    _check_array(outage_gen_params.fo_duration <= 0, "Forced outage duration is null or negative on following days")
+    _check_array(outage_gen_params.po_rate < 0, "Planned failure rate is negative on following days")
+    _check_array(outage_gen_params.po_rate > 1, "Planned failure rate is greater than 1 on following days")
+    _check_array(outage_gen_params.po_duration <= 0, "Planned outage duration is null or negative on following days")
+
+
 def _check_cluster(cluster: ThermalCluster) -> None:
-    if cluster.unit_count <= 0:
-        raise ValueError(f"Unit count must be strictly positive, got {cluster.unit_count}.")
     if cluster.nominal_power <= 0:
         raise ValueError(f"Nominal power must be strictly positive, got {cluster.nominal_power}.")
-    if cluster.fo_volatility < 0:
-        raise ValueError(f"Forced outage volatility must be positive, got {cluster.unit_count}.")
-    if cluster.po_volatility < 0:
-        raise ValueError(f"Planned outage volatility must be positive, got {cluster.unit_count}.")
 
-    _check_1_dim(cluster.fo_rate, "Forced outage failure rate")
-    _check_1_dim(cluster.fo_duration, "Forced outage duration")
-    _check_1_dim(cluster.po_rate, "Planned failure rate")
-    _check_1_dim(cluster.po_duration, "Planned outage duration")
-    _check_1_dim(cluster.npo_min, "Minimum count of planned outages")
-    _check_1_dim(cluster.npo_max, "Maximum count of planned outages")
+    _check_outage_gen_params(cluster.outage_gen_params)
+
     _check_1_dim(cluster.modulation, "Hourly modulation")
+
     if len(cluster.modulation) != 8760:
         raise ValueError("hourly modulation array must have 8760 values.")
 
-    _check_array(cluster.fo_rate < 0, "Forced failure rate is negative on following days")
-    _check_array(cluster.fo_rate > 1, "Forced failure rate is greater than 1 on following days")
-    _check_array(cluster.fo_duration <= 0, "Forced outage duration is null or negative on following days")
-    _check_array(cluster.po_rate < 0, "Planned failure rate is negative on following days")
-    _check_array(cluster.po_rate > 1, "Planned failure rate is greater than 1 on following days")
-    _check_array(cluster.po_duration <= 0, "Planned outage duration is null or negative on following days")
     _check_array(cluster.modulation < 0, "Hourly modulation is negative on following hours")
 
     lengths = {
         len(a)
         for a in [
-            cluster.fo_rate,
-            cluster.fo_duration,
-            cluster.po_rate,
-            cluster.po_duration,
-            cluster.npo_min,
-            cluster.npo_max,
+            cluster.outage_gen_params.fo_rate,
+            cluster.outage_gen_params.fo_duration,
+            cluster.outage_gen_params.po_rate,
+            cluster.outage_gen_params.po_duration,
+            cluster.outage_gen_params.npo_min,
+            cluster.outage_gen_params.npo_max,
         ]
     }
     if len(lengths) != 1:
         raise ValueError(f"Not all daily arrays have same size, got {lengths}")
 
 
+def _check_link_capacity(link_capacity: LinkCapacity):
+    if link_capacity.nominal_capacity <= 0:
+        raise ValueError(f" {link_capacity.nominal_capacity}.")
+    if len(link_capacity.modulation_direct) < 0:
+        raise ValueError(f" {link_capacity.modulation_direct}.")
+    if len(link_capacity.modulation_indirect) < 0:
+        raise ValueError(f" {link_capacity.modulation_indirect}.")
+
+    _check_outage_gen_params(link_capacity.outage_gen_params)
+
+    _check_1_dim(link_capacity.modulation_indirect, "Direct modulation")
+    _check_1_dim(link_capacity.modulation_indirect, "Indirect hourly modulation")
+
+    if len(link_capacity.modulation_direct) != 8760 and len(link_capacity.modulation_indirect) != 8760:
+        raise ValueError("hourly modulation array must have 8760 values.")
+
+    _check_array(link_capacity.modulation_direct < 0, "Hourly direct modulation is negative on following hours")
+    _check_array(link_capacity.modulation_indirect < 0, "Hourly indirect modulation is negative on following hours")
+
+    lengths = {
+        len(a)
+        for a in [
+            link_capacity.outage_gen_params.fo_rate,
+            link_capacity.outage_gen_params.fo_duration,
+            link_capacity.outage_gen_params.po_rate,
+            link_capacity.outage_gen_params.po_duration,
+            link_capacity.outage_gen_params.npo_min,
+            link_capacity.outage_gen_params.npo_max,
+        ]
+    }
+    if len(lengths) != 1:
+        raise ValueError(f"Not all daily arrays have same size, got {lengths}")
+
+#OutputTimeseries ->
 class OutputTimeseries:
     def __init__(self, ts_count: int, days: int) -> None:
         self.available_units = np.zeros(shape=(days, ts_count), dtype=int)
@@ -253,10 +337,86 @@ class ThermalDataGenerator:
         self.rng = rng
         self.days = days
 
-    def generate_time_series(
-        self,
-        cluster: ThermalCluster,
-        number_of_timeseries: int,
+    def _compare_apparent_PO(
+            self,
+            current_available_units: int,
+            po_candidates: int,
+            stock: int
+    ):
+        candidate = po_candidates + stock
+        if 0 <= candidate <= current_available_units:
+            po_candidates = candidate
+            stock = 0
+        if candidate > current_available_units:
+            po_candidates = current_available_units
+            stock = candidate - current_available_units
+        if candidate < 0:
+            po_candidates = 0
+            stock = candidate
+        return po_candidates, stock
+
+    def _generate_outages(
+            self,
+            outage_gen_params: OutageGenerationParameters,
+            log,
+            log_size,
+            logp,
+            number_of_timeseries,
+            output
+    ):
+        daily_fo_rate = _compute_failure_rates(outage_gen_params.fo_rate, outage_gen_params.fo_duration)
+        daily_po_rate = _compute_failure_rates(outage_gen_params.po_rate, outage_gen_params.po_duration)
+        _combine_failure_rates(daily_fo_rate, daily_po_rate)
+
+        fo_drawer = ForcedOutagesDrawer(self.rng, outage_gen_params.unit_count, daily_fo_rate)
+        po_drawer = PlannedOutagesDrawer(self.rng, outage_gen_params.unit_count, daily_po_rate)
+
+        fod_generator = make_duration_generator(self.rng, outage_gen_params.fo_law,
+                                                outage_gen_params.fo_volatility, outage_gen_params.fo_duration)
+        pod_generator = make_duration_generator(self.rng, outage_gen_params.po_law,
+                                                outage_gen_params.po_volatility, outage_gen_params.po_duration)
+
+        self.output_generation(outage_gen_params, fo_drawer, fod_generator,
+                log, log_size, logp,
+                number_of_timeseries, output, po_drawer, pod_generator)
+
+    def generate_time_series_for_links(
+            self,
+            link: LinkCapacity,
+            number_of_timeseries: int
+    ) -> tuple[ndarray[Any, dtype[Any]], ndarray[Any, dtype[Any]]]:
+        """
+        generation of multiple timeseries for a given link capacity
+        """
+        _check_link_capacity(link)
+
+        # TODO: Remove this log size limit, seems useless and error prone if very large durations
+        log_size = 4000  # >= 5 * (max(df) + max(dp))
+        # the number of starting (if positive)/ stopping (if negative) units (due to FO and PO) at a given time
+        log = np.zeros(log_size, dtype=int)
+        # same but only for PO; necessary to ensure maximum and minimum PO is respected
+        logp = np.zeros(log_size, dtype=int)
+
+        # --- calculation ---
+        # the two first generated time series will be dropped, necessary to make system stable and physically coherent
+        # as a consequence, N + 2 time series will be computed
+
+        # output that will be returned
+        output = OutputTimeseries(number_of_timeseries, self.days)
+
+        self._generate_outages(link.outage_gen_params, log, log_size, logp, number_of_timeseries, output)
+
+        hourly_available_units = _daily_to_hourly(output.available_units)
+
+        direct_output = hourly_available_units * link.nominal_capacity * link.modulation_direct[:, np.newaxis]
+        indirect_output = hourly_available_units * link.nominal_capacity * link.modulation_indirect[:, np.newaxis]
+
+        return direct_output, indirect_output
+
+    def generate_time_series_for_clusters(
+            self,
+            cluster: ThermalCluster,
+            number_of_timeseries: int,
     ) -> OutputTimeseries:
         """
         generation of multiple timeseries for a given thermal cluster
@@ -273,14 +433,8 @@ class ThermalDataGenerator:
         # lf and lp represent the forced and programed failure rate
         # failure rate means the probability to enter in outage each day
         # its value is given by: OR / [OR + OD * (1 - OR)]
-        daily_fo_rate = _compute_failure_rates(cluster.fo_rate, cluster.fo_duration)
-        daily_po_rate = _compute_failure_rates(cluster.po_rate, cluster.po_duration)
-        _combine_failure_rates(daily_fo_rate, daily_po_rate)
 
-        fo_drawer = ForcedOutagesDrawer(self.rng, cluster.unit_count, daily_fo_rate)
-        po_drawer = PlannedOutagesDrawer(self.rng, cluster.unit_count, daily_po_rate)
-        fod_generator = make_duration_generator(self.rng, cluster.fo_law, cluster.fo_volatility, cluster.fo_duration)
-        pod_generator = make_duration_generator(self.rng, cluster.po_law, cluster.po_volatility, cluster.po_duration)
+
 
         # --- calculation ---
         # the two first generated time series will be dropped, necessary to make system stable and physically coherent
@@ -289,17 +443,27 @@ class ThermalDataGenerator:
         # output that will be returned
         output = OutputTimeseries(number_of_timeseries, self.days)
 
+        self._generate_outages(cluster.outage_gen_params, log, log_size, logp, number_of_timeseries, output)
+
+        #
+        hourly_available_units = _daily_to_hourly(output.available_units)
+        output.available_power = hourly_available_units * cluster.nominal_power * cluster.modulation[:, np.newaxis]
+        np.round(output.available_power)
+        return output
+
+    def output_generation(self, outage_gen_params, fo_drawer, fod_generator, log, log_size, logp, number_of_timeseries,
+                          output,
+                          po_drawer, pod_generator):
         # dates
         now = 0
-
         # current number of PO and AU (avlaible units)
         current_planned_outages = 0
-        current_available_units = cluster.unit_count
+        current_available_units = outage_gen_params.unit_count
         # stock is a way to keep the number of PO pushed back due to PO max / antcipated due to PO min
         # stock > 0 number of PO pushed back, stock < 0 number of PO antcipated
         stock = 0
-
         for ts_index in range(-2, number_of_timeseries):
+
             for day in range(self.days):
                 # = return of units wich were in outage =
                 current_planned_outages -= logp[now]
@@ -307,8 +471,8 @@ class ThermalDataGenerator:
                 current_available_units += log[now]
                 log[now] = 0
 
-                if current_planned_outages > cluster.npo_max[day]:
-                    cible_retour = current_planned_outages - cluster.npo_max[day]
+                if current_planned_outages > outage_gen_params.npo_max[day]:
+                    cible_retour = current_planned_outages - outage_gen_params.npo_max[day]
                     cumul_retour = 0
                     for index in range(1, log_size):
                         if cumul_retour == cible_retour:
@@ -323,39 +487,32 @@ class ThermalDataGenerator:
                                 log[(now + index) % log_size] -= logp[(now + index) % log_size]
                                 logp[(now + index) % log_size] = 0
                     current_available_units += cible_retour
-                    current_planned_outages = cluster.npo_max[day]
+                    current_planned_outages = outage_gen_params.npo_max[day]
 
                 fo_candidates = fo_drawer.draw(current_available_units, day)
                 po_candidates, stock = po_drawer.draw(current_available_units, day, stock)
 
                 # apparent PO is compared to cur_nb_AU, considering stock
-                candidate = po_candidates + stock
-                if 0 <= candidate and candidate <= current_available_units:
-                    po_candidates = candidate
-                    stock = 0
-                if candidate > current_available_units:
-                    po_candidates = current_available_units
-                    stock = candidate - current_available_units
-                if candidate < 0:
-                    po_candidates = 0
-                    stock = candidate
+                po_candidates, stock = self._compare_apparent_PO(current_available_units, po_candidates, stock)
 
+                # params : npo_max / min, po_can, current_planned, stock
+                #
                 # = checking min and max PO =
-                if po_candidates + current_planned_outages > cluster.npo_max[day]:
+                if po_candidates + current_planned_outages > outage_gen_params.npo_max[day]:
                     # too many PO to place
                     # the excedent is placed in stock
-                    stock += po_candidates + current_planned_outages - cluster.npo_max[day]
-                    po_candidates = cluster.npo_max[day] - current_planned_outages
-                    current_planned_outages = cluster.npo_max[day]
-                elif po_candidates + current_planned_outages < cluster.npo_min[day]:
-                    if cluster.npo_min[day] - current_planned_outages > current_available_units:
+                    stock += po_candidates + current_planned_outages - outage_gen_params.npo_max[day]
+                    po_candidates = outage_gen_params.npo_max[day] - current_planned_outages
+                    current_planned_outages = outage_gen_params.npo_max[day]
+                elif po_candidates + current_planned_outages < outage_gen_params.npo_min[day]:
+                    if outage_gen_params.npo_min[day] - current_planned_outages > current_available_units:
                         stock -= current_available_units - po_candidates
                         po_candidates = current_available_units
                         current_planned_outages += po_candidates
                     else:
-                        stock -= cluster.npo_min[day] - (po_candidates + current_planned_outages)
-                        po_candidates = cluster.npo_min[day] - current_planned_outages
-                        current_planned_outages = cluster.npo_min[day]
+                        stock -= outage_gen_params.npo_min[day] - (po_candidates + current_planned_outages)
+                        po_candidates = outage_gen_params.npo_min[day] - current_planned_outages
+                        current_planned_outages = outage_gen_params.npo_min[day]
                 else:
                     current_planned_outages += po_candidates
 
@@ -399,8 +556,3 @@ class ThermalDataGenerator:
                     output.available_units[day, ts_index] = current_available_units
 
                 now = (now + 1) % log_size
-
-        hourly_available_units = _daily_to_hourly(output.available_units)
-        output.available_power = hourly_available_units * cluster.nominal_power * cluster.modulation[:, np.newaxis]
-        np.round(output.available_power)
-        return output

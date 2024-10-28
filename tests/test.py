@@ -27,7 +27,7 @@ def test_cluster(cluster, output_directory):
     ts_nb = 1
 
     generator = ThermalDataGenerator()
-    results = generator.generate_time_series(cluster, ts_nb)
+    results = generator.generate_time_series_for_clusters(cluster, ts_nb)
 
     tot_po = 0
     tot_fo = 0
