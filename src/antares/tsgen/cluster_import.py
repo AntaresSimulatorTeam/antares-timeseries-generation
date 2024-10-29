@@ -14,7 +14,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .ts_generator import ProbabilityLaw, ThermalCluster, OutageGenerationParameters
+from .ts_generator import OutageGenerationParameters, ProbabilityLaw, ThermalCluster
 
 
 def import_thermal_cluster(path: Path, days_per_year: int = 365) -> ThermalCluster:
@@ -30,12 +30,12 @@ def import_thermal_cluster(path: Path, days_per_year: int = 365) -> ThermalClust
         fo_volatility=float(array[5][1]),
         po_law=law_dict[array[6][1]],
         po_volatility=float(array[7][1]),
-        fo_duration=array[8][1: days_per_year + 1].astype(int),
-        fo_rate=array[9][1: days_per_year + 1].astype(float),
-        po_duration=array[10][1: days_per_year + 1].astype(int),
-        po_rate=array[11][1: days_per_year + 1].astype(float),
-        npo_min=array[12][1: days_per_year + 1].astype(int),
-        npo_max=array[13][1: days_per_year + 1].astype(int),
+        fo_duration=array[8][1 : days_per_year + 1].astype(int),
+        fo_rate=array[9][1 : days_per_year + 1].astype(float),
+        po_duration=array[10][1 : days_per_year + 1].astype(int),
+        po_rate=array[11][1 : days_per_year + 1].astype(float),
+        npo_min=array[12][1 : days_per_year + 1].astype(int),
+        npo_max=array[13][1 : days_per_year + 1].astype(int),
     )
     return ThermalCluster(
         outage_gen_params,

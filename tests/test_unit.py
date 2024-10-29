@@ -15,19 +15,29 @@ import numpy.testing as npt
 import pytest
 
 from antares.tsgen.random_generator import MersenneTwisterRNG
-import antares.tsgen.ts_generator
+from antares.tsgen.ts_generator import (
+    LinkCapacity,
+    OutageGenerationParameters,
+    ProbabilityLaw,
+    ThermalCluster,
+    ThermalDataGenerator,
+    _categorize_outages,
+    _check_cluster,
+    _column_powers,
+    _daily_to_hourly,
+)
 
 
 def test_daily_to_hourly():
     daily = np.array([[1, 2]])
-    hourly = antares.tsgen.ts_generator._daily_to_hourly(daily)
+    hourly = _daily_to_hourly(daily)
     expected = [[1, 2]] * 24
     npt.assert_equal(hourly, expected)
 
 
 def test_elevate_to_power():
     input = np.array([1, 0.5, 0.1])
-    powers = antares.tsgen.ts_generator._column_powers(input, 3)
+    powers = _column_powers(input, 3)
     expected = np.array([[1, 1, 1], [1, 0.5, 0.25], [1, 0.1, 0.01]])
     npt.assert_almost_equal(powers, expected, decimal=3)
 
@@ -36,31 +46,33 @@ def test_elevate_to_power():
 def base_cluster_365_days():
     days = 365
     outage_gen_params = valid_outage_params()
-    return antares.tsgen.ts_generator.ThermalCluster(
+    return ThermalCluster(
         outage_gen_params,
         nominal_power=100,
         modulation=np.ones(dtype=float, shape=8760),
     )
 
+
 @pytest.fixture()
 def base_link_365_days():
     days = 365
     outage_gen_params = valid_outage_params()
-    return antares.tsgen.ts_generator.LinkCapacity(
+    return LinkCapacity(
         outage_gen_params,
         nominal_capacity=100,
         modulation_indirect=np.ones(dtype=float, shape=8760),
         modulation_direct=np.ones(dtype=float, shape=8760),
     )
 
+
 # cluster -> outage gen params
 def test_outage_params_with_null_duration(rng):
     days = 365
     args = {
         "unit_count": 10,
-        "fo_law": antares.tsgen.ts_generator.ProbabilityLaw.UNIFORM,
+        "fo_law": ProbabilityLaw.UNIFORM,
         "fo_volatility": 0,
-        "po_law": antares.tsgen.ts_generator.ProbabilityLaw.UNIFORM,
+        "po_law": ProbabilityLaw.UNIFORM,
         "po_volatility": 0,
         "fo_duration": 10 * np.ones(dtype=int, shape=days),
         "fo_rate": 0.2 * np.zeros(dtype=float, shape=days),
@@ -72,7 +84,7 @@ def test_outage_params_with_null_duration(rng):
     for duration_type in ["po_duration", "fo_duration"]:
         args[duration_type] = 10 * np.zeros(dtype=int, shape=days)
         with pytest.raises(ValueError, match="outage duration is null or negative on following days"):
-            antares.tsgen.ts_generator.OutageGenerationParameters(**args)
+            OutageGenerationParameters(**args)
 
 
 def test_invalid_fo_rates(rng, base_cluster_365_days, base_link_365_days):
@@ -88,7 +100,7 @@ def test_invalid_fo_rates(rng, base_cluster_365_days, base_link_365_days):
         ValueError,
         match="Forced failure rate is negative on following days: \[10, 12\]",
     ):
-        generator = antares.tsgen.ts_generator.ThermalDataGenerator(rng=rng, days=days)
+        generator = ThermalDataGenerator(rng=rng, days=days)
         generator.generate_time_series_for_clusters(cluster, 1)
 
 
@@ -102,14 +114,14 @@ def test_invalid_po_rates(rng, base_cluster_365_days):
         ValueError,
         match="Planned failure rate is negative on following days: \[10, 12\]",
     ):
-        generator = antares.tsgen.ts_generator.ThermalDataGenerator(rng=rng, days=days)
+        generator = ThermalDataGenerator(rng=rng, days=days)
         generator.generate_time_series_for_clusters(cluster, 1)
 
 
-def valid_cluster() -> antares.tsgen.ts_generator.ThermalCluster:
+def valid_cluster() -> ThermalCluster:
     days = 365
     outage_gen_params = valid_outage_params()
-    return antares.tsgen.ts_generator.ThermalCluster(
+    return ThermalCluster(
         outage_gen_params,
         nominal_power=100,
         modulation=np.ones(dtype=float, shape=8760),
@@ -118,42 +130,42 @@ def valid_cluster() -> antares.tsgen.ts_generator.ThermalCluster:
 
 def test_invalid_cluster():
     cluster = valid_cluster()
-    antares.tsgen.ts_generator._check_cluster(cluster)
+    _check_cluster(cluster)
 
     cluster = valid_cluster()
     with pytest.raises(ValueError):
         cluster.nominal_power = -1
-        antares.tsgen.ts_generator._check_cluster(cluster)
+        _check_cluster(cluster)
 
     cluster = valid_cluster()
     with pytest.raises(ValueError):
         cluster.outage_gen_params.unit_count = -1
-        antares.tsgen.ts_generator._check_cluster(cluster)
+        _check_cluster(cluster)
 
     cluster = valid_cluster()
     with pytest.raises(ValueError):
         cluster.outage_gen_params.fo_duration[10] = -1
-        antares.tsgen.ts_generator._check_cluster(cluster)
+        _check_cluster(cluster)
 
     cluster = valid_cluster()
     with pytest.raises(ValueError):
         cluster.outage_gen_params.po_duration[10] = -1
-        antares.tsgen.ts_generator._check_cluster(cluster)
+        _check_cluster(cluster)
 
     cluster = valid_cluster()
     with pytest.raises(ValueError):
         cluster.modulation[10] = -1
-        antares.tsgen.ts_generator._check_cluster(cluster)
+        _check_cluster(cluster)
 
     cluster = valid_cluster()
     with pytest.raises(ValueError):
         cluster.modulation = np.ones(30)
-        antares.tsgen.ts_generator._check_cluster(cluster)
+        _check_cluster(cluster)
 
     cluster = valid_cluster()
     with pytest.raises(ValueError):
         cluster.outage_gen_params.fo_rate = cluster.outage_gen_params.fo_rate[:-2]
-        antares.tsgen.ts_generator._check_cluster(cluster)
+        _check_cluster(cluster)
 
 
 @pytest.mark.parametrize(
@@ -169,20 +181,20 @@ def test_invalid_cluster():
     ],
 )
 def test_distribute_outages(available_units, po_candidates, fo_candidates, expected):
-    outages = antares.tsgen.ts_generator._categorize_outages(available_units, po_candidates, fo_candidates)
+    outages = _categorize_outages(available_units, po_candidates, fo_candidates)
     assert outages == expected
 
 
 def test_forced_outages(rng):
     days = 365
-    #modifier valid_outage_params de facon à le paramétrer
+    # modifier valid_outage_params de facon à le paramétrer
     outage_gen_params = valid_outage_params()
-    cluster = antares.tsgen.ts_generator.ThermalCluster(
+    cluster = ThermalCluster(
         outage_gen_params,
         nominal_power=100,
         modulation=np.ones(dtype=float, shape=8760),
     )
-    link_capacity=antares.tsgen.ts_generator.LinkCapacity(
+    link_capacity = LinkCapacity(
         outage_gen_params,
         nominal_capacity=100,
         modulation_direct=np.ones(dtype=float, shape=8760),
@@ -190,7 +202,7 @@ def test_forced_outages(rng):
     )
     cluster.modulation[12] = 0.5
 
-    generator = antares.tsgen.ts_generator.ThermalDataGenerator(rng=rng, days=days)
+    generator = ThermalDataGenerator(rng=rng, days=days)
     results = generator.generate_time_series_for_clusters(cluster, 1)
     # 2 forced outages occur on day 5, with duration 10
     npt.assert_equal(results.forced_outages.T[0][:6], [0, 0, 0, 0, 2, 0])
@@ -210,12 +222,12 @@ def test_forced_outages(rng):
 def test_planned_outages(rng):
     days = 365
     outage_gen_params = valid_outage_params()
-    cluster = antares.tsgen.ts_generator.ThermalCluster(
+    cluster = ThermalCluster(
         outage_gen_params,
         nominal_power=100,
         modulation=np.ones(dtype=float, shape=8760),
     )
-    link=antares.tsgen.ts_generator.LinkCapacity(
+    link = LinkCapacity(
         outage_gen_params,
         nominal_capacity=100,
         modulation_indirect=np.ones(dtype=float, shape=8760),
@@ -225,8 +237,8 @@ def test_planned_outages(rng):
     link.modulation_indirect[12] = 0.5
     link.modulation_direct[12] = 0.5
 
-    generator = antares.tsgen.ts_generator.ThermalDataGenerator(rng=rng, days=days)
-    results = generator.generate_time_series_for_clusters(cluster,  1)
+    generator = ThermalDataGenerator(rng=rng, days=days)
+    results = generator.generate_time_series_for_clusters(cluster, 1)
     # 0 forced outage
     npt.assert_equal(results.forced_outages.T[0], np.zeros(365))
     npt.assert_equal(results.forced_outage_durations.T[0], np.zeros(365))
@@ -244,18 +256,18 @@ def test_planned_outages_limitation(rng):
     days = 365
     # Maximum 1 planned outage at a time.
     outage_gen_params = valid_outage_params()
-    cluster = antares.tsgen.ts_generator.ThermalCluster(
+    cluster = ThermalCluster(
         outage_gen_params,
         nominal_power=100,
         modulation=np.ones(dtype=float, shape=8760),
     )
-    link=antares.tsgen.ts_generator.LinkCapacity(
+    link = LinkCapacity(
         outage_gen_params,
         nominal_capacity=100,
         modulation_direct=np.ones(dtype=float, shape=8760),
         modulation_indirect=np.ones(dtype=float, shape=8760),
     )
-    generator = antares.tsgen.ts_generator.ThermalDataGenerator(rng=rng, days=days)
+    generator = ThermalDataGenerator(rng=rng, days=days)
     results = generator.generate_time_series_for_clusters(cluster, 1)
     # No forced outage
     npt.assert_equal(results.forced_outages.T[0], np.zeros(365))
@@ -274,18 +286,18 @@ def test_planned_outages_min_limitation(rng):
     days = 365
     # Minimum 2 planned outages at a time
     outage_gen_params = valid_outage_params()
-    cluster = antares.tsgen.ts_generator.ThermalCluster(
+    cluster = ThermalCluster(
         outage_gen_params,
         nominal_power=100,
         modulation=np.ones(dtype=float, shape=8760),
     )
-    link=antares.tsgen.ts_generator.LinkCapacity(
+    link = LinkCapacity(
         outage_gen_params,
         nominal_capacity=100,
         modulation_direct=np.ones(dtype=float, shape=8760),
         modulation_indirect=np.ones(dtype=float, shape=8760),
     )
-    generator = antares.tsgen.ts_generator.ThermalDataGenerator(rng=rng, days=days)
+    generator = ThermalDataGenerator(rng=rng, days=days)
     results = generator.generate_time_series_for_clusters(cluster, 1)
     # No forced outage
     npt.assert_equal(results.forced_outages.T[0], np.zeros(365))
@@ -314,19 +326,19 @@ def test_with_long_fo_and_po_duration(data_directory):
     fo_rate[:31] = 0.1
     po_rate[:31] = 0.02
     outage_gen_params = valid_outage_params()
-    cluster = antares.tsgen.ts_generator.ThermalCluster(
+    cluster = ThermalCluster(
         outage_gen_params,
         nominal_power=500,
         modulation=modulation_matrix,
     )
-    link=antares.tsgen.ts_generator.LinkCapacity(
+    link = LinkCapacity(
         outage_gen_params,
         nominal_capacity=500,
         modulation_indirect=modulation_matrix,
         modulation_direct=modulation_matrix,
     )
     rng = MersenneTwisterRNG(seed=3005489)
-    generator = antares.tsgen.ts_generator.ThermalDataGenerator(rng=rng, days=days)
+    generator = ThermalDataGenerator(rng=rng, days=days)
     results = generator.generate_time_series_for_clusters(cluster, 10)
 
     expected_matrix = np.loadtxt(
@@ -334,13 +346,14 @@ def test_with_long_fo_and_po_duration(data_directory):
     )
     assert np.array_equal(results.available_power, expected_matrix)
 
-def valid_outage_params() -> antares.tsgen.ts_generator.OutageGenerationParameters:
+
+def valid_outage_params() -> OutageGenerationParameters:
     days = 365
-    return antares.tsgen.ts_generator.OutageGenerationParameters(
+    return OutageGenerationParameters(
         unit_count=10,
-        fo_law=antares.tsgen.ts_generator.ProbabilityLaw.UNIFORM,
+        fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
-        po_law=antares.tsgen.ts_generator.ProbabilityLaw.UNIFORM,
+        po_law=ProbabilityLaw.UNIFORM,
         po_volatility=0,
         fo_duration=10 * np.ones(dtype=int, shape=days),
         fo_rate=np.zeros(dtype=float, shape=days),
@@ -350,13 +363,14 @@ def valid_outage_params() -> antares.tsgen.ts_generator.OutageGenerationParamete
         npo_max=10 * np.ones(dtype=int, shape=days),
     )
 
-#def test_valid_outage_params():
+
+# def test_valid_outage_params():
 
 
-#def test_invalid_outage_params():
+# def test_invalid_outage_params():
 
 
-#def test_valid_link_capacity():
+# def test_valid_link_capacity():
 
 
-#def test_invalid_link_capacity():
+# def test_invalid_link_capacity():

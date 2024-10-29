@@ -11,11 +11,11 @@
 # This file is part of the Antares project.
 
 from dataclasses import dataclass
-from typing import Tuple, Any
+from typing import Any, Tuple
 
 import numpy as np
 import numpy.typing as npt
-from numpy import ndarray, dtype
+from numpy import dtype, ndarray
 
 from antares.tsgen.duration_generator import ProbabilityLaw, make_duration_generator
 from antares.tsgen.random_generator import RNG, MersenneTwisterRNG
@@ -55,7 +55,7 @@ class OutageGenerationParameters:
 @dataclass
 class ThermalCluster:
     # available units of the cluster
-    #unit_count: int
+    # unit_count: int
     outage_gen_params: OutageGenerationParameters
     # nominal power
     nominal_power: float
@@ -64,19 +64,19 @@ class ThermalCluster:
 
     # forced and planed outage parameters
     # indexed by day of the year
-    #fo_duration: IntArray
-    #fo_rate: FloatArray
-    #po_duration: IntArray
-    #po_rate: FloatArray
-    #npo_min: IntArray  # number of planed outage min in a day
-    #npo_max: IntArray  # number of planed outage max in a day
+    # fo_duration: IntArray
+    # fo_rate: FloatArray
+    # po_duration: IntArray
+    # po_rate: FloatArray
+    # npo_min: IntArray  # number of planed outage min in a day
+    # npo_max: IntArray  # number of planed outage max in a day
 
     # forced and planed outage probability law and volatility
     # volatility characterizes the distance from the expect at which the value drawn can be
-    #fo_law: ProbabilityLaw
-    #fo_volatility: float
-    #po_law: ProbabilityLaw
-    #po_volatility: float
+    # fo_law: ProbabilityLaw
+    # fo_volatility: float
+    # po_law: ProbabilityLaw
+    # po_volatility: float
 
     def __post_init__(self) -> None:
         _check_cluster(self)
@@ -84,13 +84,13 @@ class ThermalCluster:
 
 @dataclass
 class LinkCapacity:
-    #outage generation parameters
+    # outage generation parameters
     outage_gen_params: OutageGenerationParameters
 
-    #nominal capacity
+    # nominal capacity
     nominal_capacity: float
 
-    #direct / indirect modulation of the nominal capacity
+    # direct / indirect modulation of the nominal capacity
     modulation_direct: FloatArray
     modulation_indirect: FloatArray
 
@@ -192,7 +192,8 @@ def _check_link_capacity(link_capacity: LinkCapacity):
     if len(lengths) != 1:
         raise ValueError(f"Not all daily arrays have same size, got {lengths}")
 
-#OutputTimeseries ->
+
+# OutputTimeseries ->
 class OutputTimeseries:
     def __init__(self, ts_count: int, days: int) -> None:
         self.available_units = np.zeros(shape=(days, ts_count), dtype=int)
@@ -337,12 +338,7 @@ class ThermalDataGenerator:
         self.rng = rng
         self.days = days
 
-    def _compare_apparent_PO(
-            self,
-            current_available_units: int,
-            po_candidates: int,
-            stock: int
-    ):
+    def _compare_apparent_PO(self, current_available_units: int, po_candidates: int, stock: int):
         candidate = po_candidates + stock
         if 0 <= candidate <= current_available_units:
             po_candidates = candidate
@@ -356,13 +352,7 @@ class ThermalDataGenerator:
         return po_candidates, stock
 
     def _generate_outages(
-            self,
-            outage_gen_params: OutageGenerationParameters,
-            log,
-            log_size,
-            logp,
-            number_of_timeseries,
-            output
+        self, outage_gen_params: OutageGenerationParameters, log, log_size, logp, number_of_timeseries, output
     ):
         daily_fo_rate = _compute_failure_rates(outage_gen_params.fo_rate, outage_gen_params.fo_duration)
         daily_po_rate = _compute_failure_rates(outage_gen_params.po_rate, outage_gen_params.po_duration)
@@ -371,19 +361,28 @@ class ThermalDataGenerator:
         fo_drawer = ForcedOutagesDrawer(self.rng, outage_gen_params.unit_count, daily_fo_rate)
         po_drawer = PlannedOutagesDrawer(self.rng, outage_gen_params.unit_count, daily_po_rate)
 
-        fod_generator = make_duration_generator(self.rng, outage_gen_params.fo_law,
-                                                outage_gen_params.fo_volatility, outage_gen_params.fo_duration)
-        pod_generator = make_duration_generator(self.rng, outage_gen_params.po_law,
-                                                outage_gen_params.po_volatility, outage_gen_params.po_duration)
+        fod_generator = make_duration_generator(
+            self.rng, outage_gen_params.fo_law, outage_gen_params.fo_volatility, outage_gen_params.fo_duration
+        )
+        pod_generator = make_duration_generator(
+            self.rng, outage_gen_params.po_law, outage_gen_params.po_volatility, outage_gen_params.po_duration
+        )
 
-        self.output_generation(outage_gen_params, fo_drawer, fod_generator,
-                log, log_size, logp,
-                number_of_timeseries, output, po_drawer, pod_generator)
+        self.output_generation(
+            outage_gen_params,
+            fo_drawer,
+            fod_generator,
+            log,
+            log_size,
+            logp,
+            number_of_timeseries,
+            output,
+            po_drawer,
+            pod_generator,
+        )
 
     def generate_time_series_for_links(
-            self,
-            link: LinkCapacity,
-            number_of_timeseries: int
+        self, link: LinkCapacity, number_of_timeseries: int
     ) -> tuple[ndarray[Any, dtype[Any]], ndarray[Any, dtype[Any]]]:
         """
         generation of multiple timeseries for a given link capacity
@@ -414,9 +413,9 @@ class ThermalDataGenerator:
         return direct_output, indirect_output
 
     def generate_time_series_for_clusters(
-            self,
-            cluster: ThermalCluster,
-            number_of_timeseries: int,
+        self,
+        cluster: ThermalCluster,
+        number_of_timeseries: int,
     ) -> OutputTimeseries:
         """
         generation of multiple timeseries for a given thermal cluster
@@ -434,8 +433,6 @@ class ThermalDataGenerator:
         # failure rate means the probability to enter in outage each day
         # its value is given by: OR / [OR + OD * (1 - OR)]
 
-
-
         # --- calculation ---
         # the two first generated time series will be dropped, necessary to make system stable and physically coherent
         # as a consequence, N + 2 time series will be computed
@@ -451,9 +448,19 @@ class ThermalDataGenerator:
         np.round(output.available_power)
         return output
 
-    def output_generation(self, outage_gen_params, fo_drawer, fod_generator, log, log_size, logp, number_of_timeseries,
-                          output,
-                          po_drawer, pod_generator):
+    def output_generation(
+        self,
+        outage_gen_params,
+        fo_drawer,
+        fod_generator,
+        log,
+        log_size,
+        logp,
+        number_of_timeseries,
+        output,
+        po_drawer,
+        pod_generator,
+    ):
         # dates
         now = 0
         # current number of PO and AU (avlaible units)
