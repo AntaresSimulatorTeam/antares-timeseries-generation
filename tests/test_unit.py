@@ -23,7 +23,8 @@ from antares.tsgen.ts_generator import (
     _categorize_outages,
     _check_cluster,
     _column_powers,
-    _daily_to_hourly, LinkCapacity,
+    _daily_to_hourly,
+    LinkCapacity,
 )
 
 
