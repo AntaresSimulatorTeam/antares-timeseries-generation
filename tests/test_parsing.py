@@ -16,17 +16,15 @@ import pytest
 
 from antares.tsgen.cluster_parsing import parse_cluster_ts, parse_yaml_cluster
 from antares.tsgen.cluster_resolve import resolve_thermal_cluster
-from antares.tsgen.ts_generator import ProbabilityLaw, ThermalCluster
+from antares.tsgen.ts_generator import OutageGenerationParameters, ProbabilityLaw, ThermalCluster
 
 NB_OF_DAY = 10
 
 
 @pytest.fixture
 def cluster() -> ThermalCluster:
-    return ThermalCluster(
+    outage_gen_params = OutageGenerationParameters(
         unit_count=1,
-        nominal_power=500,
-        modulation=np.ones(dtype=float, shape=8760),
         fo_law=ProbabilityLaw.UNIFORM,
         fo_volatility=0,
         po_law=ProbabilityLaw.UNIFORM,
@@ -37,6 +35,11 @@ def cluster() -> ThermalCluster:
         po_rate=np.ones(dtype=float, shape=NB_OF_DAY) * 0.1,
         npo_min=np.zeros(dtype=int, shape=NB_OF_DAY),
         npo_max=np.ones(dtype=int, shape=NB_OF_DAY),
+    )
+    return ThermalCluster(
+        outage_gen_params,
+        nominal_power=500,
+        modulation=np.ones(dtype=float, shape=8760),
     )
 
 
