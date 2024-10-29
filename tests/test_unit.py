@@ -16,15 +16,15 @@ import pytest
 
 from antares.tsgen.random_generator import MersenneTwisterRNG
 from antares.tsgen.ts_generator import (
-    ProbabilityLaw,
-    ThermalCluster,
-    ThermalDataGenerator,
-    OutageGenerationParameters,
     _categorize_outages,
     _check_cluster,
     _column_powers,
     _daily_to_hourly,
     LinkCapacity,
+    ProbabilityLaw,
+    ThermalCluster,
+    ThermalDataGenerator,
+    OutageGenerationParameters,
 )
 
 
