@@ -50,16 +50,16 @@ def test(cluster, data_directory):
     modulation = parse_cluster_ts(data_directory / "modulation.csv")
     cld = resolve_thermal_cluster(yaml_cluster, ts_param, modulation)
 
-    assert cld.unit_count == cluster.unit_count
+    assert cld.outage_gen_params.unit_count == cluster.outage_gen_params.unit_count
     assert cld.nominal_power == cluster.nominal_power
     npt.assert_equal(cld.modulation, cluster.modulation)
-    assert cld.fo_law == cluster.fo_law
-    assert cld.fo_volatility == cluster.fo_volatility
-    assert cld.po_law == cluster.po_law
-    assert cld.po_volatility == cluster.po_volatility
-    npt.assert_equal(cld.fo_duration, cluster.fo_duration)
-    npt.assert_equal(cld.fo_rate, cluster.fo_rate)
-    npt.assert_equal(cld.po_duration, cluster.po_duration)
-    npt.assert_equal(cld.po_rate, cluster.po_rate)
-    npt.assert_equal(cld.npo_min, cluster.npo_min)
-    npt.assert_equal(cld.npo_max, cluster.npo_max)
+    assert cld.outage_gen_params.fo_law == cluster.outage_gen_params.fo_law
+    assert cld.outage_gen_params.fo_volatility == cluster.outage_gen_params.fo_volatility
+    assert cld.outage_gen_params.po_law == cluster.outage_gen_params.po_law
+    assert cld.outage_gen_params.po_volatility == cluster.outage_gen_params.po_volatility
+    npt.assert_equal(cld.outage_gen_params.fo_duration, cluster.outage_gen_params.fo_duration)
+    npt.assert_equal(cld.outage_gen_params.fo_rate, cluster.outage_gen_params.fo_rate)
+    npt.assert_equal(cld.outage_gen_params.po_duration, cluster.outage_gen_params.po_duration)
+    npt.assert_equal(cld.outage_gen_params.po_rate, cluster.outage_gen_params.po_rate)
+    npt.assert_equal(cld.outage_gen_params.npo_min, cluster.outage_gen_params.npo_min)
+    npt.assert_equal(cld.outage_gen_params.npo_max, cluster.outage_gen_params.npo_max)
