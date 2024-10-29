@@ -21,10 +21,10 @@ from antares.tsgen.ts_generator import (
     _column_powers,
     _daily_to_hourly,
     LinkCapacity,
+    OutageGenerationParameters,
     ProbabilityLaw,
     ThermalCluster,
     ThermalDataGenerator,
-    OutageGenerationParameters,
 )
 
 
