@@ -1,8 +1,8 @@
-black~=23.7.0
+black~=24.3.0
 isort~=5.12.0
 matplotlib>=3.5.1
 mypy~=1.7.1
 pandas-stubs
 pytest-cov
-pytest~=7.0.0
+pytest~=8.3.3
 types-PyYAML
