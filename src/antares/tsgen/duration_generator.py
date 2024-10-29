@@ -30,7 +30,8 @@ class DurationGenerator(ABC):
     """
 
     @abstractmethod
-    def generate_duration(self, day: int) -> int: ...
+    def generate_duration(self, day: int) -> int:
+        ...
 
 
 class GeneratorWrapper(DurationGenerator):

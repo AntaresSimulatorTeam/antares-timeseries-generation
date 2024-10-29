@@ -21,7 +21,8 @@ class RNG(ABC):
     """
 
     @abstractmethod
-    def next(self) -> float: ...
+    def next(self) -> float:
+        ...
 
 
 class PythonRNG(ABC):

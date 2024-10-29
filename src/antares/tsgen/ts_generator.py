@@ -17,7 +17,7 @@ import numpy as np
 import numpy.typing as npt
 from numpy import dtype, ndarray
 
-from antares.tsgen.duration_generator import ProbabilityLaw, make_duration_generator
+from antares.tsgen.duration_generator import DurationGenerator, ProbabilityLaw, make_duration_generator
 from antares.tsgen.random_generator import RNG, MersenneTwisterRNG
 
 # probabilities above FAILURE_RATE_EQ_1 are considered certain (equal to 1)
@@ -159,7 +159,7 @@ def _check_cluster(cluster: ThermalCluster) -> None:
         raise ValueError(f"Not all daily arrays have same size, got {lengths}")
 
 
-def _check_link_capacity(link_capacity: LinkCapacity):
+def _check_link_capacity(link_capacity: LinkCapacity) -> None:
     if link_capacity.nominal_capacity <= 0:
         raise ValueError(f" {link_capacity.nominal_capacity}.")
     if len(link_capacity.modulation_direct) < 0:
@@ -338,7 +338,7 @@ class ThermalDataGenerator:
         self.rng = rng
         self.days = days
 
-    def _compare_apparent_PO(self, current_available_units: int, po_candidates: int, stock: int):
+    def _compare_apparent_PO(self, current_available_units: int, po_candidates: int, stock: int) -> tuple[int, int]:
         candidate = po_candidates + stock
         if 0 <= candidate <= current_available_units:
             po_candidates = candidate
@@ -352,8 +352,14 @@ class ThermalDataGenerator:
         return po_candidates, stock
 
     def _generate_outages(
-        self, outage_gen_params: OutageGenerationParameters, log, log_size, logp, number_of_timeseries, output
-    ):
+        self,
+        outage_gen_params: OutageGenerationParameters,
+        log: ndarray[Any, dtype],
+        log_size: int,
+        logp: ndarray[Any, dtype],
+        number_of_timeseries: int,
+        output: OutputTimeseries,
+    ) -> None:
         daily_fo_rate = _compute_failure_rates(outage_gen_params.fo_rate, outage_gen_params.fo_duration)
         daily_po_rate = _compute_failure_rates(outage_gen_params.po_rate, outage_gen_params.po_duration)
         _combine_failure_rates(daily_fo_rate, daily_po_rate)
@@ -450,17 +456,17 @@ class ThermalDataGenerator:
 
     def output_generation(
         self,
-        outage_gen_params,
-        fo_drawer,
-        fod_generator,
-        log,
-        log_size,
-        logp,
-        number_of_timeseries,
-        output,
-        po_drawer,
-        pod_generator,
-    ):
+        outage_gen_params: OutageGenerationParameters,
+        fo_drawer: ForcedOutagesDrawer,
+        fod_generator: DurationGenerator,
+        log: ndarray[Any, dtype],
+        log_size: int,
+        logp: ndarray[Any, dtype],
+        number_of_timeseries: int,
+        output: OutputTimeseries,
+        po_drawer: PlannedOutagesDrawer,
+        pod_generator: DurationGenerator,
+    ) -> None:
         # dates
         now = 0
         # current number of PO and AU (avlaible units)
@@ -470,7 +476,6 @@ class ThermalDataGenerator:
         # stock > 0 number of PO pushed back, stock < 0 number of PO antcipated
         stock = 0
         for ts_index in range(-2, number_of_timeseries):
-
             for day in range(self.days):
                 # = return of units wich were in outage =
                 current_planned_outages -= logp[now]
