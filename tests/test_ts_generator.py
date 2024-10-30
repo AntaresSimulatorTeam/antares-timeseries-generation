@@ -15,7 +15,7 @@ import csv
 import pytest
 
 from antares.tsgen.cluster_import import import_thermal_cluster
-from antares.tsgen.ts_generator import ThermalCluster, ThermalDataGenerator
+from antares.tsgen.ts_generator import ThermalCluster, TimeseriesGenerator
 
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def cluster_high_por(data_directory) -> ThermalCluster:
 def test_one_unit_cluster(cluster_1, output_directory):
     ts_nb = 4
 
-    generator = ThermalDataGenerator()
+    generator = TimeseriesGenerator()
     results = generator.generate_time_series_for_clusters(cluster_1, ts_nb)
 
     tot_po = 0
@@ -60,7 +60,7 @@ def test_one_unit_cluster(cluster_1, output_directory):
 def test_hundred_unit_cluster(cluster_100, output_directory):
     ts_nb = 50
 
-    generator = ThermalDataGenerator()
+    generator = TimeseriesGenerator()
     results = generator.generate_time_series_for_clusters(cluster_100, ts_nb)
 
     tot_po = 0
@@ -109,7 +109,7 @@ def test_hundred_unit_cluster(cluster_100, output_directory):
 def test_max_po(cluster_high_por, output_directory):
     ts_nb = 4
 
-    generator = ThermalDataGenerator()
+    generator = TimeseriesGenerator()
     results = generator.generate_time_series_for_clusters(cluster_high_por, ts_nb)
 
     # check the max PO

@@ -20,9 +20,10 @@ from antares.tsgen.ts_generator import (
     OutageGenerationParameters,
     ProbabilityLaw,
     ThermalCluster,
-    ThermalDataGenerator,
+    TimeseriesGenerator,
     _categorize_outages,
     _check_cluster,
+    _check_link_capacity,
     _column_powers,
     _daily_to_hourly,
 )
@@ -44,7 +45,6 @@ def test_elevate_to_power():
 
 @pytest.fixture()
 def base_cluster_365_days():
-    days = 365
     outage_gen_params = valid_outage_params()
     return ThermalCluster(
         outage_gen_params,
@@ -55,7 +55,6 @@ def base_cluster_365_days():
 
 @pytest.fixture()
 def base_link_365_days():
-    days = 365
     outage_gen_params = valid_outage_params()
     return LinkCapacity(
         outage_gen_params,
@@ -87,12 +86,9 @@ def test_outage_params_with_null_duration(rng):
             OutageGenerationParameters(**args)
 
 
-def test_invalid_fo_rates(rng, base_cluster_365_days, base_link_365_days):
+def test_link_invalid_fo_rates(rng, base_link_365_days):
     days = 365
-    cluster = base_cluster_365_days
     link = base_link_365_days
-    cluster.outage_gen_params.fo_rate[12] = -0.2
-    cluster.outage_gen_params.fo_rate[10] = -0.1
     link.outage_gen_params.fo_rate[12] = -0.2
     link.outage_gen_params.fo_rate[10] = -0.1
 
@@ -100,11 +96,25 @@ def test_invalid_fo_rates(rng, base_cluster_365_days, base_link_365_days):
         ValueError,
         match="Forced failure rate is negative on following days: \[10, 12\]",
     ):
-        generator = ThermalDataGenerator(rng=rng, days=days)
+        generator = TimeseriesGenerator(rng=rng, days=days)
+        generator.generate_time_series_for_links(link, 1)
+
+
+def test_cluster_invalid_fo_rates(rng, base_cluster_365_days):
+    days = 365
+    cluster = base_cluster_365_days
+    cluster.outage_gen_params.fo_rate[12] = -0.2
+    cluster.outage_gen_params.fo_rate[10] = -0.1
+
+    with pytest.raises(
+        ValueError,
+        match="Forced failure rate is negative on following days: \[10, 12\]",
+    ):
+        generator = TimeseriesGenerator(rng=rng, days=days)
         generator.generate_time_series_for_clusters(cluster, 1)
 
 
-def test_invalid_po_rates(rng, base_cluster_365_days):
+def test_cluster_invalid_po_rates(rng, base_cluster_365_days):
     days = 365
     cluster = base_cluster_365_days
     cluster.outage_gen_params.po_rate[12] = -0.2
@@ -114,17 +124,40 @@ def test_invalid_po_rates(rng, base_cluster_365_days):
         ValueError,
         match="Planned failure rate is negative on following days: \[10, 12\]",
     ):
-        generator = ThermalDataGenerator(rng=rng, days=days)
+        generator = TimeseriesGenerator(rng=rng, days=days)
         generator.generate_time_series_for_clusters(cluster, 1)
 
 
-def valid_cluster() -> ThermalCluster:
+def test_link_invalid_po_rates(rng, base_link_365_days):
     days = 365
+    link = base_link_365_days
+    link.outage_gen_params.po_rate[12] = -0.2
+    link.outage_gen_params.po_rate[10] = -0.1
+
+    with pytest.raises(
+        ValueError,
+        match="Planned failure rate is negative on following days: \[10, 12\]",
+    ):
+        generator = TimeseriesGenerator(rng=rng, days=days)
+        generator.generate_time_series_for_links(link, 1)
+
+
+def valid_cluster() -> ThermalCluster:
     outage_gen_params = valid_outage_params()
     return ThermalCluster(
         outage_gen_params,
         nominal_power=100,
         modulation=np.ones(dtype=float, shape=8760),
+    )
+
+
+def valid_link() -> LinkCapacity:
+    outage_gen_params = valid_outage_params()
+    return LinkCapacity(
+        outage_gen_params,
+        nominal_capacity=100,
+        modulation_direct=np.ones(dtype=float, shape=8760),
+        modulation_indirect=np.ones(dtype=float, shape=8760),
     )
 
 
@@ -168,6 +201,54 @@ def test_invalid_cluster():
         _check_cluster(cluster)
 
 
+def test_invalid_link():
+    link = valid_link()
+    _check_link_capacity(link)
+
+    link = valid_link()
+    with pytest.raises(ValueError):
+        link.nominal_capacity = -1
+        _check_link_capacity(link)
+
+    link = valid_link()
+    with pytest.raises(ValueError):
+        link.outage_gen_params.unit_count = -1
+        _check_link_capacity(link)
+
+    link = valid_link()
+    with pytest.raises(ValueError):
+        link.outage_gen_params.fo_duration[10] = -1
+        _check_link_capacity(link)
+
+    link = valid_link()
+    with pytest.raises(ValueError):
+        link.outage_gen_params.po_duration[10] = -1
+        _check_link_capacity(link)
+
+    link = valid_link()
+    with pytest.raises(ValueError):
+        link.modulation_direct[10] = -1
+        link.modulation_indirect[10] = -1
+        _check_link_capacity(link)
+
+    link = valid_link()
+    with pytest.raises(ValueError):
+        link.modulation_direct = np.ones(30)
+        print(link.modulation_direct)
+        _check_link_capacity(link)
+
+    link = valid_link()
+    with pytest.raises(ValueError):
+        link.modulation_indirect = np.ones(30)
+        print(link.modulation_direct)
+        _check_link_capacity(link)
+
+    link = valid_link()
+    with pytest.raises(ValueError):
+        link.outage_gen_params.fo_rate = link.outage_gen_params.fo_rate[:-2]
+        _check_link_capacity(link)
+
+
 @pytest.mark.parametrize(
     "available_units,po_candidates,fo_candidates,expected",
     [
@@ -185,7 +266,7 @@ def test_distribute_outages(available_units, po_candidates, fo_candidates, expec
     assert outages == expected
 
 
-def test_forced_outages(rng):
+def test_cluster_forced_outages(rng):
     days = 365
     # modifier valid_outage_params de facon à le paramétrer
     outage_gen_params = OutageGenerationParameters(
@@ -206,18 +287,19 @@ def test_forced_outages(rng):
         nominal_power=100,
         modulation=np.ones(dtype=float, shape=8760),
     )
+
     cluster.modulation[12] = 0.5
 
-    generator = ThermalDataGenerator(rng=rng, days=days)
+    generator = TimeseriesGenerator(rng=rng, days=days)
     results = generator.generate_time_series_for_clusters(cluster, 1)
     # 2 forced outages occur on day 5, with duration 10
-    npt.assert_equal(results.forced_outages.T[0][:6], [0, 0, 0, 0, 2, 0])
-    npt.assert_equal(results.forced_outage_durations.T[0][:6], [0, 0, 0, 0, 10, 0])
+    npt.assert_equal(results.outage_output.forced_outages.T[0][:6], [0, 0, 0, 0, 2, 0])
+    npt.assert_equal(results.outage_output.forced_outage_durations.T[0][:6], [0, 0, 0, 0, 10, 0])
     # No planned outage
-    npt.assert_equal(results.planned_outages.T[0], np.zeros(365))
-    npt.assert_equal(results.planned_outage_durations.T[0], np.zeros(365))
+    npt.assert_equal(results.outage_output.planned_outages.T[0], np.zeros(365))
+    npt.assert_equal(results.outage_output.planned_outage_durations.T[0], np.zeros(365))
 
-    npt.assert_equal(results.available_units.T[0][:5], [9, 9, 9, 9, 8])
+    npt.assert_equal(results.outage_output.available_units.T[0][:5], [9, 9, 9, 9, 8])
     # Check available power consistency with available units and modulation
     available_power = results.available_power.T
     assert available_power[0][0] == 900
@@ -225,7 +307,54 @@ def test_forced_outages(rng):
     assert available_power[0][4 * 24] == 800
 
 
-def test_planned_outages(rng):
+def test_link_forced_outages(rng):
+    days = 365
+    # modifier valid_outage_params de facon à le paramétrer
+    outage_gen_params = OutageGenerationParameters(
+        unit_count=10,
+        fo_law=ProbabilityLaw.UNIFORM,
+        fo_volatility=0,
+        po_law=ProbabilityLaw.UNIFORM,
+        po_volatility=0,
+        fo_duration=10 * np.ones(dtype=int, shape=days),
+        fo_rate=0.2 * np.ones(dtype=float, shape=days),
+        po_duration=10 * np.ones(dtype=int, shape=days),
+        po_rate=np.zeros(dtype=float, shape=days),
+        npo_min=np.zeros(dtype=int, shape=days),
+        npo_max=10 * np.ones(dtype=int, shape=days),
+    )
+    link = LinkCapacity(
+        outage_gen_params,
+        nominal_capacity=100,
+        modulation_direct=np.ones(dtype=float, shape=8760),
+        modulation_indirect=np.ones(dtype=float, shape=8760),
+    )
+
+    link.modulation_direct[12] = 0.5
+    link.modulation_indirect[12] = 0.5
+
+    generator = TimeseriesGenerator(rng=rng, days=days)
+    results = generator.generate_time_series_for_links(link, 1)
+    # 2 forced outages occur on day 5, with duration 10
+    npt.assert_equal(results.outage_output.forced_outages.T[0][:6], [0, 0, 0, 0, 2, 0])
+    npt.assert_equal(results.outage_output.forced_outage_durations.T[0][:6], [0, 0, 0, 0, 10, 0])
+    # No planned outage
+    npt.assert_equal(results.outage_output.planned_outages.T[0], np.zeros(365))
+    npt.assert_equal(results.outage_output.planned_outage_durations.T[0], np.zeros(365))
+
+    npt.assert_equal(results.outage_output.available_units.T[0][:5], [9, 9, 9, 9, 8])
+    # Check available power consistency with available units and modulation
+    direct_available_power = results.direct_available_power.T
+    indirect_available_power = results.indirect_available_power.T
+    assert direct_available_power[0][0] == 900
+    assert direct_available_power[0][12] == 450  # Modulation is 0.5 for hour 12
+    assert direct_available_power[0][4 * 24] == 800
+    assert indirect_available_power[0][0] == 900
+    assert indirect_available_power[0][12] == 450  # Modulation is 0.5 for hour 12
+    assert indirect_available_power[0][4 * 24] == 800
+
+
+def test_cluster_planned_outages(rng):
     days = 365
     outage_gen_params = valid_outage_params()
     cluster = ThermalCluster(
@@ -233,24 +362,17 @@ def test_planned_outages(rng):
         nominal_power=100,
         modulation=np.ones(dtype=float, shape=8760),
     )
-    link = LinkCapacity(
-        outage_gen_params,
-        nominal_capacity=100,
-        modulation_indirect=np.ones(dtype=float, shape=8760),
-        modulation_direct=np.ones(dtype=float, shape=8760),
-    )
-    cluster.modulation[12] = 0.5
-    link.modulation_indirect[12] = 0.5
-    link.modulation_direct[12] = 0.5
 
-    generator = ThermalDataGenerator(rng=rng, days=days)
+    cluster.modulation[12] = 0.5
+
+    generator = TimeseriesGenerator(rng=rng, days=days)
     results = generator.generate_time_series_for_clusters(cluster, 1)
     # 0 forced outage
-    npt.assert_equal(results.forced_outages.T[0], np.zeros(365))
-    npt.assert_equal(results.forced_outage_durations.T[0], np.zeros(365))
+    npt.assert_equal(results.outage_output.forced_outages.T[0], np.zeros(365))
+    npt.assert_equal(results.outage_output.forced_outage_durations.T[0], np.zeros(365))
     # No planned outage
-    npt.assert_equal(results.planned_outages.T[0][:6], [0, 0, 0, 0, 2, 0])
-    npt.assert_equal(results.available_units.T[0][:5], [9, 9, 9, 9, 8])
+    npt.assert_equal(results.outage_output.planned_outages.T[0][:6], [0, 0, 0, 0, 2, 0])
+    npt.assert_equal(results.outage_output.available_units.T[0][:5], [9, 9, 9, 9, 8])
     # Check available power consistency with available units and modulation
     available_power = results.available_power.T
     assert available_power[0][0] == 900
@@ -258,7 +380,39 @@ def test_planned_outages(rng):
     assert available_power[0][4 * 24] == 800
 
 
-def test_planned_outages_limitation(rng):
+def test_link_planned_outages(rng):
+    days = 365
+    outage_gen_params = valid_outage_params()
+    link = LinkCapacity(
+        outage_gen_params,
+        nominal_capacity=100,
+        modulation_direct=np.ones(dtype=float, shape=8760),
+        modulation_indirect=np.ones(dtype=float, shape=8760),
+    )
+
+    link.modulation_direct[12] = 0.5
+    link.modulation_indirect[12] = 0.5
+
+    generator = TimeseriesGenerator(rng=rng, days=days)
+    results = generator.generate_time_series_for_links(link, 1)
+    # 0 forced outage
+    npt.assert_equal(results.outage_output.forced_outages.T[0], np.zeros(365))
+    npt.assert_equal(results.outage_output.forced_outage_durations.T[0], np.zeros(365))
+    # No planned outage
+    npt.assert_equal(results.outage_output.planned_outages.T[0][:6], [0, 0, 0, 0, 2, 0])
+    npt.assert_equal(results.outage_output.available_units.T[0][:5], [9, 9, 9, 9, 8])
+    # Check available power consistency with available units and modulation
+    direct_available_power = results.direct_available_power.T
+    indirect_available_power = results.indirect_available_power.T
+    assert direct_available_power[0][0] == 900
+    assert direct_available_power[0][12] == 450  # Modulation is 0.5 for hour 12
+    assert direct_available_power[0][4 * 24] == 800
+    assert indirect_available_power[0][0] == 900
+    assert indirect_available_power[0][12] == 450  # Modulation is 0.5 for hour 12
+    assert indirect_available_power[0][4 * 24] == 800
+
+
+def test_cluster_planned_outages_limitation(rng):
     days = 365
     # Maximum 1 planned outage at a time.
     outage_gen_params = OutageGenerationParameters(
@@ -279,28 +433,64 @@ def test_planned_outages_limitation(rng):
         nominal_power=100,
         modulation=np.ones(dtype=float, shape=8760),
     )
-    link = LinkCapacity(
-        outage_gen_params,
-        nominal_capacity=100,
-        modulation_direct=np.ones(dtype=float, shape=8760),
-        modulation_indirect=np.ones(dtype=float, shape=8760),
-    )
-    generator = ThermalDataGenerator(rng=rng, days=days)
+
+    generator = TimeseriesGenerator(rng=rng, days=days)
     results = generator.generate_time_series_for_clusters(cluster, 1)
     # No forced outage
-    npt.assert_equal(results.forced_outages.T[0], np.zeros(365))
-    npt.assert_equal(results.forced_outage_durations.T[0], np.zeros(365))
+    npt.assert_equal(results.outage_output.forced_outages.T[0], np.zeros(365))
+    npt.assert_equal(results.outage_output.forced_outage_durations.T[0], np.zeros(365))
     # Maximum one planned outage at a time
-    npt.assert_equal(results.planned_outages.T[0][:6], [1, 0, 1, 0, 1, 0])
-    npt.assert_equal(results.planned_outage_durations.T[0][:6], [2, 0, 2, 0, 2, 0])
-    npt.assert_equal(results.available_units.T[0][:5], [9, 9, 9, 9, 9])
+    npt.assert_equal(results.outage_output.planned_outages.T[0][:6], [1, 0, 1, 0, 1, 0])
+    npt.assert_equal(results.outage_output.planned_outage_durations.T[0][:6], [2, 0, 2, 0, 2, 0])
+    npt.assert_equal(results.outage_output.available_units.T[0][:5], [9, 9, 9, 9, 9])
     # Check available power consistency with available units and modulation
     available_power = results.available_power.T
     assert available_power[0][0] == 900
     assert available_power[0][4 * 24] == 900
 
 
-def test_planned_outages_min_limitation(rng):
+def test_link_planned_outages_limitation(rng):
+    days = 365
+    # Maximum 1 planned outage at a time.
+    outage_gen_params = OutageGenerationParameters(
+        unit_count=10,
+        fo_law=ProbabilityLaw.UNIFORM,
+        fo_volatility=0,
+        po_law=ProbabilityLaw.UNIFORM,
+        po_volatility=0,
+        fo_duration=10 * np.ones(dtype=int, shape=days),
+        fo_rate=np.zeros(dtype=float, shape=days),
+        po_duration=2 * np.ones(dtype=int, shape=days),
+        po_rate=0.2 * np.ones(dtype=float, shape=days),
+        npo_min=np.zeros(dtype=int, shape=days),
+        npo_max=1 * np.ones(dtype=int, shape=days),
+    )
+    link = LinkCapacity(
+        outage_gen_params,
+        nominal_capacity=100,
+        modulation_direct=np.ones(dtype=float, shape=8760),
+        modulation_indirect=np.ones(dtype=float, shape=8760),
+    )
+
+    generator = TimeseriesGenerator(rng=rng, days=days)
+    link_results = generator.generate_time_series_for_links(link, 1)
+    # No forced outage
+    npt.assert_equal(link_results.outage_output.forced_outages.T[0], np.zeros(365))
+    npt.assert_equal(link_results.outage_output.forced_outage_durations.T[0], np.zeros(365))
+    # Maximum one planned outage at a time
+    npt.assert_equal(link_results.outage_output.planned_outages.T[0][:6], [1, 0, 1, 0, 1, 0])
+    npt.assert_equal(link_results.outage_output.planned_outage_durations.T[0][:6], [2, 0, 2, 0, 2, 0])
+    npt.assert_equal(link_results.outage_output.available_units.T[0][:5], [9, 9, 9, 9, 9])
+    # Check available power consistency with available units and modulation
+    direct_available_power = link_results.direct_available_power.T
+    indirect_available_power = link_results.indirect_available_power.T
+    assert direct_available_power[0][0] == 900
+    assert direct_available_power[0][4 * 24] == 900
+    assert indirect_available_power[0][0] == 900
+    assert indirect_available_power[0][4 * 24] == 900
+
+
+def test_cluster_planned_outages_min_limitation(rng):
     days = 365
     # Minimum 2 planned outages at a time
     outage_gen_params = OutageGenerationParameters(
@@ -321,25 +511,59 @@ def test_planned_outages_min_limitation(rng):
         nominal_power=100,
         modulation=np.ones(dtype=float, shape=8760),
     )
+    generator = TimeseriesGenerator(rng=rng, days=days)
+    results = generator.generate_time_series_for_clusters(cluster, 1)
+    # No forced outage
+    npt.assert_equal(results.outage_output.forced_outages.T[0], np.zeros(365))
+    npt.assert_equal(results.outage_output.forced_outage_durations.T[0], np.zeros(365))
+    # Maximum one planned outage at a time
+    npt.assert_equal(results.outage_output.planned_outages.T[0][:6], [0, 0, 1, 0, 0, 1])
+    npt.assert_equal(results.outage_output.planned_outage_durations.T[0][:6], [0, 0, 10, 0, 0, 10])
+    npt.assert_equal(results.outage_output.available_units.T[0][:5], [8, 8, 8, 8, 8])
+    # Check available power consistency with available units and modulation
+    available_power = results.available_power.T
+    assert available_power[0][0] == 800
+    assert available_power[0][4 * 24] == 800
+
+
+def test_link_planned_outages_min_limitation(rng):
+    days = 365
+    # Minimum 2 planned outages at a time
+    outage_gen_params = OutageGenerationParameters(
+        unit_count=10,
+        fo_law=ProbabilityLaw.UNIFORM,
+        fo_volatility=0,
+        po_law=ProbabilityLaw.UNIFORM,
+        po_volatility=0,
+        fo_duration=10 * np.ones(dtype=int, shape=days),
+        fo_rate=np.zeros(dtype=float, shape=days),
+        po_duration=10 * np.ones(dtype=int, shape=days),
+        po_rate=0.2 * np.ones(dtype=float, shape=days),
+        npo_min=2 * np.ones(dtype=int, shape=days),
+        npo_max=5 * np.ones(dtype=int, shape=days),
+    )
     link = LinkCapacity(
         outage_gen_params,
         nominal_capacity=100,
         modulation_direct=np.ones(dtype=float, shape=8760),
         modulation_indirect=np.ones(dtype=float, shape=8760),
     )
-    generator = ThermalDataGenerator(rng=rng, days=days)
-    results = generator.generate_time_series_for_clusters(cluster, 1)
+    generator = TimeseriesGenerator(rng=rng, days=days)
+    link_results = generator.generate_time_series_for_links(link, 1)
     # No forced outage
-    npt.assert_equal(results.forced_outages.T[0], np.zeros(365))
-    npt.assert_equal(results.forced_outage_durations.T[0], np.zeros(365))
+    npt.assert_equal(link_results.outage_output.forced_outages.T[0], np.zeros(365))
+    npt.assert_equal(link_results.outage_output.forced_outage_durations.T[0], np.zeros(365))
     # Maximum one planned outage at a time
-    npt.assert_equal(results.planned_outages.T[0][:6], [0, 0, 1, 0, 0, 1])
-    npt.assert_equal(results.planned_outage_durations.T[0][:6], [0, 0, 10, 0, 0, 10])
-    npt.assert_equal(results.available_units.T[0][:5], [8, 8, 8, 8, 8])
+    npt.assert_equal(link_results.outage_output.planned_outages.T[0][:6], [0, 0, 1, 0, 0, 1])
+    npt.assert_equal(link_results.outage_output.planned_outage_durations.T[0][:6], [0, 0, 10, 0, 0, 10])
+    npt.assert_equal(link_results.outage_output.available_units.T[0][:5], [8, 8, 8, 8, 8])
     # Check available power consistency with available units and modulation
-    available_power = results.available_power.T
-    assert available_power[0][0] == 800
-    assert available_power[0][4 * 24] == 800
+    direct_available_power = link_results.direct_available_power.T
+    indirect_available_power = link_results.indirect_available_power.T
+    assert direct_available_power[0][0] == 800
+    assert direct_available_power[0][4 * 24] == 800
+    assert indirect_available_power[0][0] == 800
+    assert indirect_available_power[0][4 * 24] == 800
 
 
 def test_with_long_fo_and_po_duration(data_directory):
@@ -373,14 +597,8 @@ def test_with_long_fo_and_po_duration(data_directory):
         nominal_power=500,
         modulation=modulation_matrix,
     )
-    link = LinkCapacity(
-        outage_gen_params,
-        nominal_capacity=500,
-        modulation_indirect=modulation_matrix,
-        modulation_direct=modulation_matrix,
-    )
     rng = MersenneTwisterRNG(seed=3005489)
-    generator = ThermalDataGenerator(rng=rng, days=days)
+    generator = TimeseriesGenerator(rng=rng, days=days)
     results = generator.generate_time_series_for_clusters(cluster, 10)
 
     expected_matrix = np.loadtxt(
@@ -404,15 +622,3 @@ def valid_outage_params() -> OutageGenerationParameters:
         npo_min=np.zeros(dtype=int, shape=days),
         npo_max=10 * np.ones(dtype=int, shape=days),
     )
-
-
-# def test_valid_outage_params():
-
-
-# def test_invalid_outage_params():
-
-
-# def test_valid_link_capacity():
-
-
-# def test_invalid_link_capacity():

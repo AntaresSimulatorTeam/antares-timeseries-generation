@@ -172,7 +172,7 @@ def _check_link_capacity(link_capacity: LinkCapacity) -> None:
     _check_1_dim(link_capacity.modulation_indirect, "Direct modulation")
     _check_1_dim(link_capacity.modulation_indirect, "Indirect hourly modulation")
 
-    if len(link_capacity.modulation_direct) != 8760 and len(link_capacity.modulation_indirect) != 8760:
+    if len(link_capacity.modulation_direct) != 8760 or len(link_capacity.modulation_indirect) != 8760:
         raise ValueError("hourly modulation array must have 8760 values.")
 
     _check_array(link_capacity.modulation_direct < 0, "Hourly direct modulation is negative on following hours")
@@ -193,12 +193,13 @@ def _check_link_capacity(link_capacity: LinkCapacity) -> None:
         raise ValueError(f"Not all daily arrays have same size, got {lengths}")
 
 
-# OutputTimeseries ->
-class OutputTimeseries:
+class OutageOutput:
     def __init__(self, ts_count: int, days: int) -> None:
+        # number_of_timeseries
+        self.ts_count = ts_count
+        # number of days
+        self.days = days
         self.available_units = np.zeros(shape=(days, ts_count), dtype=int)
-        # available power each hours
-        self.available_power = np.zeros((24 * days, ts_count), dtype=float)
         # number of pure planed, pure forced and mixed outage each day
         self.planned_outages = np.zeros((days, ts_count), dtype=int)
         self.forced_outages = np.zeros((days, ts_count), dtype=int)
@@ -207,6 +208,24 @@ class OutputTimeseries:
         # (mixed outage duration = pod + fod)
         self.planned_outage_durations = np.zeros((days, ts_count), dtype=int)
         self.forced_outage_durations = np.zeros((days, ts_count), dtype=int)
+
+
+class ClusterOutputTimeseries:
+    def __init__(self, outage_output: OutageOutput) -> None:
+        # output parameters
+        self.outage_output = outage_output
+        # available power each hours
+        self.available_power = np.zeros((24 * outage_output.days, outage_output.ts_count), dtype=float)
+
+
+class LinkOutputTimeseries:
+    def __init__(self, outage_output: OutageOutput) -> None:
+        # output parameters
+        self.outage_output = outage_output
+        # direct available power each hours
+        self.direct_available_power = np.zeros((24 * outage_output.days, outage_output.ts_count), dtype=float)
+        # available power each hours
+        self.indirect_available_power = np.zeros((24 * outage_output.days, outage_output.ts_count), dtype=float)
 
 
 def _column_powers(column: FloatArray, width: int) -> npt.NDArray:
@@ -333,7 +352,7 @@ def _combine_failure_rates(rates1: FloatArray, rates2: FloatArray) -> None:
     rates2[mask] *= (1 - rates1[mask]) / (1 - rates2[mask])
 
 
-class ThermalDataGenerator:
+class TimeseriesGenerator:
     def __init__(self, rng: RNG = MersenneTwisterRNG(), days: int = 365) -> None:
         self.rng = rng
         self.days = days
@@ -358,7 +377,7 @@ class ThermalDataGenerator:
         log_size: int,
         logp: ndarray[Any, dtype],
         number_of_timeseries: int,
-        output: OutputTimeseries,
+        output: OutageOutput,
     ) -> None:
         daily_fo_rate = _compute_failure_rates(outage_gen_params.fo_rate, outage_gen_params.fo_duration)
         daily_po_rate = _compute_failure_rates(outage_gen_params.po_rate, outage_gen_params.po_duration)
@@ -387,9 +406,7 @@ class ThermalDataGenerator:
             pod_generator,
         )
 
-    def generate_time_series_for_links(
-        self, link: LinkCapacity, number_of_timeseries: int
-    ) -> tuple[ndarray[Any, dtype[Any]], ndarray[Any, dtype[Any]]]:
+    def generate_time_series_for_links(self, link: LinkCapacity, number_of_timeseries: int) -> LinkOutputTimeseries:
         """
         generation of multiple timeseries for a given link capacity
         """
@@ -407,22 +424,29 @@ class ThermalDataGenerator:
         # as a consequence, N + 2 time series will be computed
 
         # output that will be returned
-        output = OutputTimeseries(number_of_timeseries, self.days)
+        outage_params = OutageOutput(number_of_timeseries, self.days)
+        link_output = LinkOutputTimeseries(outage_params)
 
-        self._generate_outages(link.outage_gen_params, log, log_size, logp, number_of_timeseries, output)
+        self._generate_outages(
+            link.outage_gen_params, log, log_size, logp, number_of_timeseries, link_output.outage_output
+        )
 
-        hourly_available_units = _daily_to_hourly(output.available_units)
+        hourly_available_units = _daily_to_hourly(link_output.outage_output.available_units)
 
-        direct_output = hourly_available_units * link.nominal_capacity * link.modulation_direct[:, np.newaxis]
-        indirect_output = hourly_available_units * link.nominal_capacity * link.modulation_indirect[:, np.newaxis]
+        link_output.direct_available_power = (
+            hourly_available_units * link.nominal_capacity * link.modulation_direct[:, np.newaxis]
+        )
+        link_output.indirect_available_power = (
+            hourly_available_units * link.nominal_capacity * link.modulation_indirect[:, np.newaxis]
+        )
 
-        return direct_output, indirect_output
+        return link_output
 
     def generate_time_series_for_clusters(
         self,
         cluster: ThermalCluster,
         number_of_timeseries: int,
-    ) -> OutputTimeseries:
+    ) -> ClusterOutputTimeseries:
         """
         generation of multiple timeseries for a given thermal cluster
         """
@@ -444,15 +468,20 @@ class ThermalDataGenerator:
         # as a consequence, N + 2 time series will be computed
 
         # output that will be returned
-        output = OutputTimeseries(number_of_timeseries, self.days)
+        outage_output = OutageOutput(number_of_timeseries, self.days)
+        cluster_output = ClusterOutputTimeseries(outage_output)
 
-        self._generate_outages(cluster.outage_gen_params, log, log_size, logp, number_of_timeseries, output)
+        self._generate_outages(
+            cluster.outage_gen_params, log, log_size, logp, number_of_timeseries, cluster_output.outage_output
+        )
 
         #
-        hourly_available_units = _daily_to_hourly(output.available_units)
-        output.available_power = hourly_available_units * cluster.nominal_power * cluster.modulation[:, np.newaxis]
-        np.round(output.available_power)
-        return output
+        hourly_available_units = _daily_to_hourly(cluster_output.outage_output.available_units)
+        cluster_output.available_power = (
+            hourly_available_units * cluster.nominal_power * cluster.modulation[:, np.newaxis]
+        )
+        np.round(cluster_output.available_power)
+        return cluster_output
 
     def output_generation(
         self,
@@ -463,7 +492,7 @@ class ThermalDataGenerator:
         log_size: int,
         logp: ndarray[Any, dtype],
         number_of_timeseries: int,
-        output: OutputTimeseries,
+        output: OutageOutput,
         po_drawer: PlannedOutagesDrawer,
         pod_generator: DurationGenerator,
     ) -> None:
