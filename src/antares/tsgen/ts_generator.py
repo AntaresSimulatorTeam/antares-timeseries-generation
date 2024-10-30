@@ -162,10 +162,6 @@ def _check_cluster(cluster: ThermalCluster) -> None:
 def _check_link_capacity(link_capacity: LinkCapacity) -> None:
     if link_capacity.nominal_capacity <= 0:
         raise ValueError(f" {link_capacity.nominal_capacity}.")
-    if len(link_capacity.modulation_direct) < 0:
-        raise ValueError(f" {link_capacity.modulation_direct}.")
-    if len(link_capacity.modulation_indirect) < 0:
-        raise ValueError(f" {link_capacity.modulation_indirect}.")
 
     _check_outage_gen_params(link_capacity.outage_gen_params)
 
