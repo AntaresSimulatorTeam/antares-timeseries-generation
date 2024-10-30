@@ -59,24 +59,8 @@ class ThermalCluster:
     outage_gen_params: OutageGenerationParameters
     # nominal power
     nominal_power: float
-    # modulation of the nominal power for a certain hour in the day (between 0 and 1)
+
     modulation: IntArray
-
-    # forced and planed outage parameters
-    # indexed by day of the year
-    # fo_duration: IntArray
-    # fo_rate: FloatArray
-    # po_duration: IntArray
-    # po_rate: FloatArray
-    # npo_min: IntArray  # number of planed outage min in a day
-    # npo_max: IntArray  # number of planed outage max in a day
-
-    # forced and planed outage probability law and volatility
-    # volatility characterizes the distance from the expect at which the value drawn can be
-    # fo_law: ProbabilityLaw
-    # fo_volatility: float
-    # po_law: ProbabilityLaw
-    # po_volatility: float
 
     def __post_init__(self) -> None:
         _check_cluster(self)
@@ -161,7 +145,7 @@ def _check_cluster(cluster: ThermalCluster) -> None:
 
 def _check_link_capacity(link_capacity: LinkCapacity) -> None:
     if link_capacity.nominal_capacity <= 0:
-        raise ValueError(f" {link_capacity.nominal_capacity}.")
+        raise ValueError(f"Nominal power must be strictly positive, got {link_capacity.nominal_capacity}.")
 
     _check_outage_gen_params(link_capacity.outage_gen_params)
 
@@ -348,23 +332,24 @@ def _combine_failure_rates(rates1: FloatArray, rates2: FloatArray) -> None:
     rates2[mask] *= (1 - rates1[mask]) / (1 - rates2[mask])
 
 
+def _compare_apparent_po(current_available_units: int, po_candidates: int, stock: int) -> tuple[int, int]:
+    candidate = po_candidates + stock
+    if 0 <= candidate <= current_available_units:
+        po_candidates = candidate
+        stock = 0
+    if candidate > current_available_units:
+        po_candidates = current_available_units
+        stock = candidate - current_available_units
+    if candidate < 0:
+        po_candidates = 0
+        stock = candidate
+    return po_candidates, stock
+
+
 class TimeseriesGenerator:
     def __init__(self, rng: RNG = MersenneTwisterRNG(), days: int = 365) -> None:
         self.rng = rng
         self.days = days
-
-    def _compare_apparent_PO(self, current_available_units: int, po_candidates: int, stock: int) -> tuple[int, int]:
-        candidate = po_candidates + stock
-        if 0 <= candidate <= current_available_units:
-            po_candidates = candidate
-            stock = 0
-        if candidate > current_available_units:
-            po_candidates = current_available_units
-            stock = candidate - current_available_units
-        if candidate < 0:
-            po_candidates = 0
-            stock = candidate
-        return po_candidates, stock
 
     def _generate_outages(
         self,
@@ -530,10 +515,8 @@ class TimeseriesGenerator:
                 po_candidates, stock = po_drawer.draw(current_available_units, day, stock)
 
                 # apparent PO is compared to cur_nb_AU, considering stock
-                po_candidates, stock = self._compare_apparent_PO(current_available_units, po_candidates, stock)
+                po_candidates, stock = _compare_apparent_po(current_available_units, po_candidates, stock)
 
-                # params : npo_max / min, po_can, current_planned, stock
-                #
                 # = checking min and max PO =
                 if po_candidates + current_planned_outages > outage_gen_params.npo_max[day]:
                     # too many PO to place

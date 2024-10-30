@@ -6,3 +6,4 @@ pandas-stubs
 pytest-cov
 pytest~=8.3.3
 types-PyYAML
+pandas-=2.2.3

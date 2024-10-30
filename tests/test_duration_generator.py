@@ -77,10 +77,6 @@ def test_geometric_law(rng, output_directory):
     expec /= N
     assert expec == pytest.approx(10, abs=0.1)
 
-    plt.plot(range(nb_values), values)
-    plt.savefig(output_directory / "geometric_law_distrib.png")
-    plt.clf()
-
 
 def test_uniform_law(rng, output_directory):
     volatility = 1
@@ -101,7 +97,3 @@ def test_uniform_law(rng, output_directory):
 
     expec /= N
     assert expec == pytest.approx(10, abs=0.1)
-
-    plt.plot(range(nb_values), values)
-    plt.savefig(output_directory / "uniform_law_distrib.png")
-    plt.clf()

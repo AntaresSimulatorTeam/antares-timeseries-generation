@@ -234,13 +234,11 @@ def test_invalid_link():
     link = valid_link()
     with pytest.raises(ValueError):
         link.modulation_direct = np.ones(30)
-        print(link.modulation_direct)
         _check_link_capacity(link)
 
     link = valid_link()
     with pytest.raises(ValueError):
         link.modulation_indirect = np.ones(30)
-        print(link.modulation_direct)
         _check_link_capacity(link)
 
     link = valid_link()
