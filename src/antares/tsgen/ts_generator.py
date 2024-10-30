@@ -128,17 +128,7 @@ def _check_cluster(cluster: ThermalCluster) -> None:
 
     _check_array(cluster.modulation < 0, "Hourly modulation is negative on following hours")
 
-    lengths = {
-        len(a)
-        for a in [
-            cluster.outage_gen_params.fo_rate,
-            cluster.outage_gen_params.fo_duration,
-            cluster.outage_gen_params.po_rate,
-            cluster.outage_gen_params.po_duration,
-            cluster.outage_gen_params.npo_min,
-            cluster.outage_gen_params.npo_max,
-        ]
-    }
+    lengths = _check_lengths(cluster.outage_gen_params)
     if len(lengths) != 1:
         raise ValueError(f"Not all daily arrays have same size, got {lengths}")
 
@@ -158,19 +148,25 @@ def _check_link_capacity(link_capacity: LinkCapacity) -> None:
     _check_array(link_capacity.modulation_direct < 0, "Hourly direct modulation is negative on following hours")
     _check_array(link_capacity.modulation_indirect < 0, "Hourly indirect modulation is negative on following hours")
 
+    lengths = _check_lengths(link_capacity.outage_gen_params)
+
+    if len(lengths) != 1:
+        raise ValueError(f"Not all daily arrays have same size, got {lengths}")
+
+
+def _check_lengths(outage_gen_params: OutageGenerationParameters) -> set[int]:
     lengths = {
         len(a)
         for a in [
-            link_capacity.outage_gen_params.fo_rate,
-            link_capacity.outage_gen_params.fo_duration,
-            link_capacity.outage_gen_params.po_rate,
-            link_capacity.outage_gen_params.po_duration,
-            link_capacity.outage_gen_params.npo_min,
-            link_capacity.outage_gen_params.npo_max,
+            outage_gen_params.fo_rate,
+            outage_gen_params.fo_duration,
+            outage_gen_params.po_rate,
+            outage_gen_params.po_duration,
+            outage_gen_params.npo_min,
+            outage_gen_params.npo_max,
         ]
     }
-    if len(lengths) != 1:
-        raise ValueError(f"Not all daily arrays have same size, got {lengths}")
+    return lengths
 
 
 class OutageOutput:
