@@ -8,6 +8,7 @@ for Antares simulator studies.
 ```bash
 pip install antares-timeseries-generation
 ```
+Necessity to say that pandas~=2.2.3 requires python version 3.9 or newer versions
 
 ## Usage
 
