@@ -8,6 +8,7 @@ for Antares simulator studies.
 ```bash
 pip install antares-timeseries-generation
 ```
+Necessity to say that pandas~=2.2.3 requires python version 3.9 or newer versions
 
 ## Usage
 
@@ -41,9 +42,10 @@ rng = MersenneTwisterRNG()
 ```
 
 Then perform the timeseries generation:
+
 ```python
 generator = ThermalDataGenerator(rng=rng, days=days)
-results = generator.generate_time_series(cluster, 1)
+results = generator.generate_time_series_for_clusters(cluster, 1)
 ```
 
 The actual timeseries for the total available power of the cluster are available in

@@ -15,7 +15,7 @@ import csv
 import pytest
 
 from antares.tsgen.cluster_import import import_thermal_cluster
-from antares.tsgen.ts_generator import ThermalCluster, ThermalDataGenerator
+from antares.tsgen.ts_generator import ThermalCluster, TimeseriesGenerator
 
 
 @pytest.fixture
@@ -26,8 +26,8 @@ def cluster(data_directory) -> ThermalCluster:
 def test_cluster(cluster, output_directory):
     ts_nb = 1
 
-    generator = ThermalDataGenerator()
-    results = generator.generate_time_series(cluster, ts_nb)
+    generator = TimeseriesGenerator()
+    results = generator.generate_time_series_for_clusters(cluster, ts_nb)
 
     tot_po = 0
     tot_fo = 0

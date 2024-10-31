@@ -13,7 +13,7 @@
 import pandas as pd
 
 from .cluster_parsing import InputCluster
-from .ts_generator import ProbabilityLaw, ThermalCluster
+from .ts_generator import OutageGenerationParameters, ProbabilityLaw, ThermalCluster
 
 
 def resolve_thermal_cluster(
@@ -25,10 +25,8 @@ def resolve_thermal_cluster(
         "UNIFORM": ProbabilityLaw.UNIFORM,
         "GEOMETRIC": ProbabilityLaw.GEOMETRIC,
     }
-    return ThermalCluster(
+    outage_gen_params = OutageGenerationParameters(
         unit_count=parsed_yaml.unit_count,
-        nominal_power=parsed_yaml.nominal_power,
-        modulation=modulation["modulation"].to_numpy(dtype=float),
         fo_law=law_dict[parsed_yaml.fo_law],
         fo_volatility=parsed_yaml.fo_volatility,
         po_law=law_dict[parsed_yaml.po_law],
@@ -39,4 +37,9 @@ def resolve_thermal_cluster(
         po_rate=parameters_ts["POR"].to_numpy(dtype=float),
         npo_min=parameters_ts["POMax"].to_numpy(dtype=int),
         npo_max=parameters_ts["POMin"].to_numpy(dtype=int),
+    )
+    return ThermalCluster(
+        outage_gen_params,
+        nominal_power=parsed_yaml.nominal_power,
+        modulation=modulation["modulation"].to_numpy(dtype=float),
     )
