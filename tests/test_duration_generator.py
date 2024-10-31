@@ -10,7 +10,6 @@
 #
 # This file is part of the Antares project.
 
-import matplotlib.pyplot as plt
 import pytest
 
 from antares.tsgen.duration_generator import (

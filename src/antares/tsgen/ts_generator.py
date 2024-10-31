@@ -128,9 +128,7 @@ def _check_cluster(cluster: ThermalCluster) -> None:
 
     _check_array(cluster.modulation < 0, "Hourly modulation is negative on following hours")
 
-    lengths = _check_lengths(cluster.outage_gen_params)
-    if len(lengths) != 1:
-        raise ValueError(f"Not all daily arrays have same size, got {lengths}")
+    _check_lengths(cluster.outage_gen_params)
 
 
 def _check_link_capacity(link_capacity: LinkCapacity) -> None:
@@ -148,13 +146,10 @@ def _check_link_capacity(link_capacity: LinkCapacity) -> None:
     _check_array(link_capacity.modulation_direct < 0, "Hourly direct modulation is negative on following hours")
     _check_array(link_capacity.modulation_indirect < 0, "Hourly indirect modulation is negative on following hours")
 
-    lengths = _check_lengths(link_capacity.outage_gen_params)
-
-    if len(lengths) != 1:
-        raise ValueError(f"Not all daily arrays have same size, got {lengths}")
+    _check_lengths(link_capacity.outage_gen_params)
 
 
-def _check_lengths(outage_gen_params: OutageGenerationParameters) -> set[int]:
+def _check_lengths(outage_gen_params: OutageGenerationParameters) -> None:
     lengths = {
         len(a)
         for a in [
@@ -166,7 +161,9 @@ def _check_lengths(outage_gen_params: OutageGenerationParameters) -> set[int]:
             outage_gen_params.npo_max,
         ]
     }
-    return lengths
+
+    if len(lengths) != 1:
+        raise ValueError(f"Not all daily arrays have same size, got {lengths}")
 
 
 class OutageOutput:
