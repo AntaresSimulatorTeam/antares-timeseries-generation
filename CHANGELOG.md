@@ -1,6 +1,20 @@
 Changelog
 =========
 
+v0.1.7 (2023-11-12)
+-------------------
+
+### Bug fixes
+* don't crash when fo_rate or po_rate are equal to 1
+
+### Features
+* add links ts generation
+
+### Breaking change
+- ThermalDataGenerator -> TimeseriesGenerator
+- ThermalDataGenerator.generate_time_series(...) -> TimeseriesGenerator.generate_time_series_for_clusters(...)
+- new class `OutageGenerationParameters` introduced changes the way to instantiate a ThermalCluster (see the README)
+
 v0.1.6 (2023-10-22)
 -------------------
 
