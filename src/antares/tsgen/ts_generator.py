@@ -236,14 +236,11 @@ def _categorize_outages(available_units: int, po_candidates: int, fo_candidates:
 
 class ForcedOutagesDrawer:
     def __init__(self, rng: RNG, unit_count: int, failure_rate: FloatArray):
-        days = len(failure_rate)
         self.rng = rng
         self.failure_rate = failure_rate
-        self.ff = np.zeros(days, dtype=float)  # ff = lf / (1 - lf)
-        a = np.zeros(shape=days, dtype=float)
         mask = failure_rate <= FAILURE_RATE_EQ_1
-        a[mask] = 1 - failure_rate[mask]
-        self.ff[mask] = failure_rate[mask] / a
+        a = np.where(mask, 1 - failure_rate, 0)
+        self.ff = np.where(mask, failure_rate / a, 0)  # ff = lf / (1 - lf)
         self.fpow = _column_powers(a, unit_count + 1)
 
     def draw(self, available_units: int, day: int) -> int:
@@ -269,14 +266,11 @@ class ForcedOutagesDrawer:
 
 class PlannedOutagesDrawer:
     def __init__(self, rng: RNG, unit_count: int, failure_rate: FloatArray):
-        days = len(failure_rate)
         self.rng = rng
         self.failure_rate = failure_rate
-        self.pp = np.zeros(days, dtype=float)  # pp = lp / (1 - lp)
-        a = np.zeros(shape=days, dtype=float)
         mask = failure_rate <= FAILURE_RATE_EQ_1
-        a[mask] = 1 - failure_rate[mask]
-        self.pp[mask] = failure_rate[mask] / a
+        a = np.where(mask, 1 - failure_rate, 0)
+        self.pp = np.where(mask, failure_rate / a, 0)  # pp = lp / (1 - lp)
         self.ppow = _column_powers(a, unit_count + 1)
 
     def draw(self, available_units: int, day: int, stock: int) -> Tuple[int, int]:
