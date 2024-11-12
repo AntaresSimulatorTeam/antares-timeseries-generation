@@ -61,20 +61,14 @@ def test_one_unit_cluster(cluster_1, output_directory):
 def test_generation_with_fo_rate_at_1(cluster_1):
     # Put FO_rate at 1 shouldn't raise an issue
     cluster_1.outage_gen_params.fo_rate = np.ones(365)
-    try:
-        TimeseriesGenerator().generate_time_series_for_clusters(cluster_1, 1)
-    except Exception as e:
-        raise AssertionError from e
+    TimeseriesGenerator().generate_time_series_for_clusters(cluster_1, 1)
 
     # Reset
     cluster_1.outage_gen_params.fo_rate = np.zeros(365)
 
     # Put PO_rate at 1 shouldn't raise an issue
     cluster_1.outage_gen_params.po_rate = np.ones(365)
-    try:
-        TimeseriesGenerator().generate_time_series_for_clusters(cluster_1, 1)
-    except Exception as e:
-        raise AssertionError from e
+    TimeseriesGenerator().generate_time_series_for_clusters(cluster_1, 1)
 
 
 def test_hundred_unit_cluster(cluster_100, output_directory):
