@@ -12,6 +12,7 @@
 
 import csv
 
+import numpy as np
 import pytest
 
 from antares.tsgen.cluster_import import import_thermal_cluster
@@ -55,6 +56,25 @@ def test_one_unit_cluster(cluster_1, output_directory):
 
         writer.writerow(["total PO :", tot_po, "total FO :", tot_fo])
         writer.writerow(["PO rate :", round(true_por, 4), "FO rate :", round(true_for, 4)])
+
+
+def test_generation_with_fo_rate_at_1(cluster_1):
+    # Put FO_rate at 1 shouldn't raise an issue
+    cluster_1.outage_gen_params.fo_rate = np.ones(365)
+    try:
+        TimeseriesGenerator().generate_time_series_for_clusters(cluster_1, 1)
+    except Exception as e:
+        raise AssertionError from e
+
+    # Reset
+    cluster_1.outage_gen_params.fo_rate = np.zeros(365)
+
+    # Put PO_rate at 1 shouldn't raise an issue
+    cluster_1.outage_gen_params.po_rate = np.ones(365)
+    try:
+        TimeseriesGenerator().generate_time_series_for_clusters(cluster_1, 1)
+    except Exception as e:
+        raise AssertionError from e
 
 
 def test_hundred_unit_cluster(cluster_100, output_directory):
