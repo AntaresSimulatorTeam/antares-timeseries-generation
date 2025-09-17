@@ -439,6 +439,10 @@ class TimeseriesGenerator:
         outage_output = OutageOutput(number_of_timeseries, self.days)
         cluster_output = ClusterOutputTimeseries(outage_output)
 
+        if cluster.nominal_power == 0 or cluster.outage_gen_params.unit_count == 0:
+            # In these cases, we shouldn't perform any calculation. The result will just be a matrix full of zeros.
+            return cluster_output
+
         self._generate_outages(
             cluster.outage_gen_params, log, log_size, logp, number_of_timeseries, cluster_output.outage_output
         )
