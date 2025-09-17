@@ -93,8 +93,8 @@ def _check_array(condition: npt.NDArray[np.bool_], message: str) -> None:
 
 
 def _check_outage_gen_params(outage_gen_params: OutageGenerationParameters) -> None:
-    if outage_gen_params.unit_count <= 0:
-        raise ValueError(f"Unit count must be strictly positive, got {outage_gen_params.unit_count}.")
+    if outage_gen_params.unit_count < 0:
+        raise ValueError(f"Unit count must be positive, got {outage_gen_params.unit_count}.")
     if outage_gen_params.fo_volatility < 0:
         raise ValueError(f"Forced outage volatility must be positive, got {outage_gen_params.unit_count}.")
     if outage_gen_params.po_volatility < 0:
@@ -116,8 +116,8 @@ def _check_outage_gen_params(outage_gen_params: OutageGenerationParameters) -> N
 
 
 def _check_cluster(cluster: ThermalCluster) -> None:
-    if cluster.nominal_power <= 0:
-        raise ValueError(f"Nominal power must be strictly positive, got {cluster.nominal_power}.")
+    if cluster.nominal_power < 0:
+        raise ValueError(f"Nominal power must be positive, got {cluster.nominal_power}.")
 
     _check_outage_gen_params(cluster.outage_gen_params)
 
@@ -438,6 +438,10 @@ class TimeseriesGenerator:
         # output that will be returned
         outage_output = OutageOutput(number_of_timeseries, self.days)
         cluster_output = ClusterOutputTimeseries(outage_output)
+
+        if cluster.nominal_power == 0 or cluster.outage_gen_params.unit_count == 0:
+            # In these cases, we shouldn't perform any calculation. The result will just be a matrix full of zeros.
+            return cluster_output
 
         self._generate_outages(
             cluster.outage_gen_params, log, log_size, logp, number_of_timeseries, cluster_output.outage_output
