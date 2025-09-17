@@ -17,7 +17,7 @@ import pytest
 
 from antares.tsgen.cluster_import import import_thermal_cluster
 from antares.tsgen.duration_generator import ProbabilityLaw
-from antares.tsgen.ts_generator import ThermalCluster, TimeseriesGenerator, OutageGenerationParameters
+from antares.tsgen.ts_generator import OutageGenerationParameters, ThermalCluster, TimeseriesGenerator
 
 
 @pytest.fixture
