@@ -48,7 +48,7 @@ def test_outage_generation_with_0_unit_count(cluster_1):
         po_duration=array,
         po_rate=array,
         npo_min=array,
-        npo_max=array
+        npo_max=array,
     )
     assert outage.unit_count == 0
 
@@ -62,6 +62,7 @@ def test_outage_generation_with_0_unit_count(cluster_1):
     generator = TimeseriesGenerator()
     results = generator.generate_time_series_for_clusters(cluster, 2)
     assert results.available_power.tolist() == np.zeros((8760, 2)).tolist()
+
 
 def test_thermal_cluster_with_0_nominal_capacity(cluster_1):
     cluster = ThermalCluster(
