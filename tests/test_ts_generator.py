@@ -11,12 +11,13 @@
 # This file is part of the Antares project.
 
 import csv
+from typing import cast
 
 import numpy as np
 import pytest
 
 from antares.tsgen.cluster_import import import_thermal_cluster
-from antares.tsgen.duration_generator import ProbabilityLaw
+from antares.tsgen.random_generator import RNG
 from antares.tsgen.ts_generator import OutageGenerationParameters, ThermalCluster, TimeseriesGenerator
 
 
@@ -35,20 +36,33 @@ def cluster_high_por(data_directory) -> ThermalCluster:
     return import_thermal_cluster(data_directory / "cluster_high_por.csv")
 
 
+class RandomGeneratorTest(RNG):
+    """
+    Random Generator made for tests
+    Our own RNG based on Mersenne-Twister algorithm.
+    """
+
+    def __init__(self):
+        self.call_count = 0
+
+    def next(self) -> float:
+        self.call_count += 1
+        return 10
+
+
 def test_outage_generation_with_0_unit_count(cluster_1):
-    array = np.ones(dtype=int, shape=365)
     outage = OutageGenerationParameters(
         unit_count=0,
-        fo_law=ProbabilityLaw.UNIFORM,
-        fo_volatility=0,
-        po_law=ProbabilityLaw.UNIFORM,
-        po_volatility=0,
-        fo_duration=array,
-        fo_rate=array,
-        po_duration=array,
-        po_rate=array,
-        npo_min=array,
-        npo_max=array,
+        fo_law=cluster_1.outage_gen_params.fo_law,
+        fo_volatility=cluster_1.outage_gen_params.fo_volatility,
+        po_law=cluster_1.outage_gen_params.po_law,
+        po_volatility=cluster_1.outage_gen_params.po_volatility,
+        fo_duration=cluster_1.outage_gen_params.fo_duration,
+        fo_rate=cluster_1.outage_gen_params.fo_rate,
+        po_duration=cluster_1.outage_gen_params.po_duration,
+        po_rate=cluster_1.outage_gen_params.po_rate,
+        npo_min=cluster_1.outage_gen_params.npo_min,
+        npo_max=cluster_1.outage_gen_params.npo_max,
     )
     assert outage.unit_count == 0
 
@@ -59,9 +73,12 @@ def test_outage_generation_with_0_unit_count(cluster_1):
     )
 
     # Ensures it generates a matrix full of zeros
-    generator = TimeseriesGenerator()
+    generator = TimeseriesGenerator(rng=RandomGeneratorTest())
     results = generator.generate_time_series_for_clusters(cluster, 2)
     assert results.available_power.tolist() == np.zeros((8760, 2)).tolist()
+
+    # Also ensures we didn't draw a random value
+    assert cast(RandomGeneratorTest, generator.rng).call_count == 0
 
 
 def test_thermal_cluster_with_0_nominal_capacity(cluster_1):
@@ -73,9 +90,12 @@ def test_thermal_cluster_with_0_nominal_capacity(cluster_1):
     assert cluster.nominal_power == 0
 
     # Ensures it generates a matrix full of zeros
-    generator = TimeseriesGenerator()
+    generator = TimeseriesGenerator(rng=RandomGeneratorTest())
     results = generator.generate_time_series_for_clusters(cluster, 2)
     assert results.available_power.tolist() == np.zeros((8760, 2)).tolist()
+
+    # Also ensures we didn't draw a random value
+    assert cast(RandomGeneratorTest, generator.rng).call_count == 0
 
 
 def test_one_unit_cluster(cluster_1, output_directory):
