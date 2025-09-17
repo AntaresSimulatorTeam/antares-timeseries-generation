@@ -1,6 +1,12 @@
 Changelog
 =========
 
+v0.1.8 (2025-09-17)
+-------------------
+
+### Bug fixes
+* don't crash when generating thermal series with `unit_count` or `nominal_power` at 0.
+
 v0.1.7 (2023-11-12)
 -------------------
 
