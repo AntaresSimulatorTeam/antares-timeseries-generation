@@ -16,7 +16,8 @@ import numpy as np
 import pytest
 
 from antares.tsgen.cluster_import import import_thermal_cluster
-from antares.tsgen.ts_generator import ThermalCluster, TimeseriesGenerator
+from antares.tsgen.duration_generator import ProbabilityLaw
+from antares.tsgen.ts_generator import ThermalCluster, TimeseriesGenerator, OutageGenerationParameters
 
 
 @pytest.fixture
@@ -32,6 +33,48 @@ def cluster_100(data_directory) -> ThermalCluster:
 @pytest.fixture
 def cluster_high_por(data_directory) -> ThermalCluster:
     return import_thermal_cluster(data_directory / "cluster_high_por.csv")
+
+
+def test_outage_generation_with_0_unit_count(cluster_1):
+    array = np.ones(dtype=int, shape=365)
+    outage = OutageGenerationParameters(
+        unit_count=0,
+        fo_law=ProbabilityLaw.UNIFORM,
+        fo_volatility=0,
+        po_law=ProbabilityLaw.UNIFORM,
+        po_volatility=0,
+        fo_duration=array,
+        fo_rate=array,
+        po_duration=array,
+        po_rate=array,
+        npo_min=array,
+        npo_max=array
+    )
+    assert outage.unit_count == 0
+
+    cluster = ThermalCluster(
+        outage_gen_params=outage,
+        nominal_power=cluster_1.nominal_power,
+        modulation=cluster_1.modulation,
+    )
+
+    # Ensures it generates a matrix full of zeros
+    generator = TimeseriesGenerator()
+    results = generator.generate_time_series_for_clusters(cluster, 2)
+    assert results.available_power.tolist() == np.zeros((8760, 2)).tolist()
+
+def test_thermal_cluster_with_0_nominal_capacity(cluster_1):
+    cluster = ThermalCluster(
+        outage_gen_params=cluster_1.outage_gen_params,
+        nominal_power=0,
+        modulation=cluster_1.modulation,
+    )
+    assert cluster.nominal_power == 0
+
+    # Ensures it generates a matrix full of zeros
+    generator = TimeseriesGenerator()
+    results = generator.generate_time_series_for_clusters(cluster, 2)
+    assert results.available_power.tolist() == np.zeros((8760, 2)).tolist()
 
 
 def test_one_unit_cluster(cluster_1, output_directory):
