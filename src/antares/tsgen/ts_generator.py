@@ -23,8 +23,8 @@ from antares.tsgen.random_generator import RNG, MersenneTwisterRNG
 # probabilities above FAILURE_RATE_EQ_1 are considered certain (equal to 1)
 FAILURE_RATE_EQ_1 = 0.999
 
-IntArray = npt.NDArray[np.int_]
-FloatArray = npt.NDArray[np.float_]
+IntArray = npt.NDArray[np.int32]
+FloatArray = npt.NDArray[np.float64]
 
 
 @dataclass()
