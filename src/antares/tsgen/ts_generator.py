@@ -23,7 +23,7 @@ from antares.tsgen.random_generator import RNG, MersenneTwisterRNG
 # probabilities above FAILURE_RATE_EQ_1 are considered certain (equal to 1)
 FAILURE_RATE_EQ_1 = 0.999
 
-IntArray = npt.NDArray[np.int32]
+IntArray = npt.NDArray[np.int64]
 FloatArray = npt.NDArray[np.float64]
 
 
@@ -206,7 +206,7 @@ def _column_powers(column: FloatArray, width: int) -> npt.NDArray:
     Returns a matrix of given width where column[i] is the ith power of the input vector.
     """
     powers = np.arange(width)
-    powers.shape = (1, len(powers))
+    powers.shape = (1, len(powers))  # type: ignore
     column.shape = (len(column), 1)
     return pow(column, powers)
 
