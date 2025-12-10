@@ -11,13 +11,16 @@
 # This file is part of the Antares project.
 
 import csv
+from pathlib import Path
 from typing import cast
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from antares.tsgen.cluster_import import import_thermal_cluster
-from antares.tsgen.random_generator import RNG
+from antares.tsgen.duration_generator import ProbabilityLaw
+from antares.tsgen.random_generator import RNG, MersenneTwisterRNG
 from antares.tsgen.ts_generator import OutageGenerationParameters, ThermalCluster, TimeseriesGenerator
 
 
@@ -220,3 +223,39 @@ def test_max_po(cluster_high_por, output_directory):
 
         writer.writerow(["total simultaneous PO :"])
         writer.writerows(tots_simult_po)
+
+
+def test_rte_i_case(data_directory: Path) -> None:
+    rng = MersenneTwisterRNG(seed=5489)
+    generator = TimeseriesGenerator(rng=rng, days=365)
+    prepro_path = data_directory / "prepro_rte_i_case.txt"
+    prepro_matrix = pd.read_csv(prepro_path, sep="\t", header=None)
+    modulation_capacity = np.array(8760 * [1])
+
+    fo_duration = np.array(prepro_matrix[0], dtype=int)
+    po_duration = np.array(prepro_matrix[1], dtype=int)
+    fo_rate = np.array(prepro_matrix[2], dtype=float)
+    po_rate = np.array(prepro_matrix[3], dtype=float)
+    npo_min = np.array(prepro_matrix[4], dtype=int)
+    npo_max = np.array(prepro_matrix[5], dtype=int)
+    generation_params = OutageGenerationParameters(
+        unit_count=4,
+        fo_law=ProbabilityLaw.UNIFORM,
+        fo_volatility=0,
+        po_law=ProbabilityLaw.UNIFORM,
+        po_volatility=0,
+        fo_duration=fo_duration,
+        fo_rate=fo_rate,
+        po_duration=po_duration,
+        po_rate=po_rate,
+        npo_min=npo_min,
+        npo_max=npo_max,
+    )
+    cluster = ThermalCluster(
+        outage_gen_params=generation_params,
+        nominal_power=500,
+        modulation=modulation_capacity,
+    )
+    results = generator.generate_time_series_for_clusters(cluster, 4)
+    print(results)
+    # todo: there's an issue we should investigate
